@@ -4,7 +4,7 @@ obj:
 tags:
   - AI
   - template
-prjfolder: tpl-b24-php
+prjfolder: tmpl-b24-php
 prjurl: /
 ssum: Привязка приложения к порталу Б24 на хостинге, где путь/домен заранее не известны
 ---

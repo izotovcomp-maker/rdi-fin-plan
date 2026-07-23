@@ -4,7 +4,7 @@ obj:
 tags:
   - AI
   - template
-prjfolder: tpl-b24-php
+prjfolder: tmpl-b24-php
 prjurl: /docs
 ssum: Протокол онбординга. Опросный лист для начала проекта и первые изменения проектных файлов
 ---

@@ -4,7 +4,7 @@ obj:
 tags:
   - AI
   - template
-prjfolder: tpl-b24-php
+prjfolder: tmpl-b24-php
 prjurl: /docs/
 ssum: Эта диаграмма — что когда происходит, чтобы при дебаге понимать «на каком POST'е сейчас».
 ---
