@@ -12,9 +12,12 @@
 </head>
 <body>
   <div id="app">
-    <header>
-      <h1>Приложение</h1>
-      <p class="muted">Шаблон single-tenant B24 local-app. Подмени UI на свой.</p>
+    <header class="header-row">
+      <div>
+        <h1>Приложение</h1>
+        <p class="muted">Шаблон single-tenant B24 local-app. Подмени UI на свой.</p>
+      </div>
+      <button type="button" id="access-btn" class="btn-secondary" hidden>Доступ</button>
     </header>
 
     <main>
@@ -36,6 +39,19 @@
         </ol>
       </section>
     </main>
+  </div>
+
+  <div id="access-modal-overlay" class="modal-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="access-modal-title">
+      <h2 id="access-modal-title">Доступ к приложению</h2>
+      <p class="muted">Администраторы портала видят приложение всегда. Отметь отделы, сотрудникам которых доступ нужен дополнительно.</p>
+      <div id="access-dept-list" class="dept-check-list"></div>
+      <div id="access-modal-error" class="modal-error" hidden></div>
+      <div class="modal-actions">
+        <button type="button" id="access-modal-cancel" class="btn-secondary">Отмена</button>
+        <button type="button" id="access-modal-save" class="btn-primary">Сохранить</button>
+      </div>
+    </div>
   </div>
 
   <script src="js/app.js"></script>

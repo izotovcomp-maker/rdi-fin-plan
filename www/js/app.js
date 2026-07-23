@@ -41,8 +41,74 @@
       },
       body: body ? JSON.stringify(body) : undefined,
     }).then(function (r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          throw new Error(j.error || ('HTTP ' + r.status));
+        });
+      }
       return r.json();
     });
   };
+
+  // ── доступ по отделам (админ-настройка) ─────────────────────────────────
+  // См. rules/rule-b24-department-based-access.md — обязательный паттерн
+  // для всех проектов на этом движке, не косметика конкретного проекта.
+
+  var accessBtn = document.getElementById('access-btn');
+  var accessModalOverlay = document.getElementById('access-modal-overlay');
+  var accessDeptList = document.getElementById('access-dept-list');
+  var accessModalError = document.getElementById('access-modal-error');
+  var accessModalCancel = document.getElementById('access-modal-cancel');
+  var accessModalSave = document.getElementById('access-modal-save');
+
+  function openAccessModal() {
+    accessModalError.hidden = true;
+    accessDeptList.innerHTML = '<div class="muted">Загрузка…</div>';
+    accessModalOverlay.hidden = false;
+
+    window.api('GET', 'api/access.php').then(function (res) {
+      var allowed = new Set(res.allowed || []);
+      accessDeptList.innerHTML = '';
+      (res.departments || []).forEach(function (d) {
+        var row = document.createElement('div');
+        row.className = 'dept-check-row';
+        var id = 'dept-' + d.id;
+        row.innerHTML = '<input type="checkbox" id="' + id + '" value="' + d.id + '">'
+          + '<label for="' + id + '"></label>';
+        row.querySelector('label').textContent = d.name;
+        row.querySelector('input').checked = allowed.has(d.id);
+        accessDeptList.appendChild(row);
+      });
+    }).catch(function (err) {
+      accessDeptList.innerHTML = '';
+      accessModalError.textContent = err.message;
+      accessModalError.hidden = false;
+    });
+  }
+
+  function closeAccessModal() {
+    accessModalOverlay.hidden = true;
+  }
+
+  if (accessBtn) {
+    if (window.APP_IS_ADMIN) accessBtn.hidden = false;
+    accessBtn.addEventListener('click', openAccessModal);
+    accessModalCancel.addEventListener('click', closeAccessModal);
+    accessModalSave.addEventListener('click', function () {
+      var ids = Array.prototype.map.call(
+        accessDeptList.querySelectorAll('input[type=checkbox]:checked'),
+        function (el) { return Number(el.value); }
+      );
+      accessModalSave.disabled = true;
+      accessModalError.hidden = true;
+      window.api('POST', 'api/access.php', { allowed: ids }).then(function () {
+        closeAccessModal();
+      }).catch(function (err) {
+        accessModalError.textContent = err.message;
+        accessModalError.hidden = false;
+      }).finally(function () {
+        accessModalSave.disabled = false;
+      });
+    });
+  }
 })();

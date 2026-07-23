@@ -92,6 +92,7 @@ ssum: "**Контекст 1го чтения**"
 ## КАК Я (КЛОД) РАБОТАЮ В ЭТОМ ПРОЕКТЕ
 
 - **Install-flow** уже зашит — двухфазно через `state` + `installFinish` + reload. См. [rule-b24-install-checklist](rules/rule-b24-install-checklist.md)
+- **Доступ к приложению** — уже реализован не только admin-only, а ещё и по отделам (UI-кнопка «Доступ», чекбоксы), из коробки. При клонировании под нового клиента — подставить дефолтный ID отдела в `DEFAULT_ALLOWED_DEPARTMENTS` (`www/api/session.php`) и не забыть scope `department` при регистрации. См. [rule-b24-department-based-access](rules/rule-b24-department-based-access.md)
 - **Деплой** — `bash deploy.sh` (локальный rsync `www/` → `/var/www/b24/<slug>/`, slug = имя папки проекта). После деплоя перезагружать Caddy не нужно — PHP-FPM подхватывает файлы сразу.
 - **REST-вызовы** — через `$b24 = b24(); $b24->call('method', [...])`. Для CRM сущностей предпочитать `crm.item.*` с `entityTypeId`, не legacy `crm.<entity>.*`. См. [rule-crm-item-universal-api](rules/rule-crm-item-universal-api.md)
 - **REST-вызов для N id (foreach)** — НЕ `foreach ($ids as $id) { $b24->call(...) }`, а `$b24->batch([...])` чанками по 50. См. [rule-b24-rest-batch-not-loop](rules/rule-b24-rest-batch-not-loop.md) — на практике разница 24-34с → 2-3с
@@ -126,7 +127,7 @@ ssum: "**Контекст 1го чтения**"
 **Cron:** {{CRON}}
 **Прод URL:** {{APP_URL}}
 **Slug / хостинг:** {{SLUG}} на b24.blackboxbegin.space
-**Скоупы Б24:** crm user placement{{EXTRA_SCOPES}}
+**Скоупы Б24:** crm user placement department{{EXTRA_SCOPES}}
 
 ## ДОКУМЕНТАЦИЯ — ПРОВЕРЯЙ КОГДА ЧТО-ТО НЕ РАБОТАЕТ
 
@@ -223,4 +224,4 @@ handle /<slug>* {
 - Тип: **Серверное** (не Статичное)
 - **Путь обработчика:** `https://b24.blackboxbegin.space/<slug>/index.php`
 - **Путь установки:** тот же URL (с `/index.php` на конце — обязательно)
-- Права: `crm`, `user`, `placement` — минимум для шаблона
+- Права: `crm`, `user`, `placement`, `department` — минимум для шаблона (`department` — доступ по отделам из коробки, см. [rule-b24-department-based-access](rules/rule-b24-department-based-access.md))

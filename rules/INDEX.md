@@ -18,3 +18,5 @@
 | [local-app-left-menu-auto-bind](local-app-left-menu-auto-bind.md) | LEFT_MENU биндится сам на cloud, вручную — на коробке |
 | [rule-crm-item-universal-api](rule-crm-item-universal-api.md) | Почему `crm.item.*` вместо legacy `crm.<entity>.*` |
 | [rule-b24-rest-batch-not-loop](rule-b24-rest-batch-not-loop.md) | REST-вызовы для N id — через `batch()`, не `foreach` с `call()`: на ~85 записях разница 24-34с → 2-3с |
+| [rule-b24-department-based-access](rule-b24-department-based-access.md) | Доступ к приложению всегда по отделам, не только admin-only — уже реализовано в шаблоне из коробки |
+| [rule-b24-scope-add-needs-token-refresh](rule-b24-scope-add-needs-token-refresh.md) | Добавил scope в карточку local-app — `access_token` не обновляется сам, нужен форс `grant_type=refresh_token` (осторожно с полем `domain` в ответе) |

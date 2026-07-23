@@ -50,7 +50,7 @@ bash deploy.sh
 - Тип: **Серверное**
 - **Путь обработчика:** `https://b24.blackboxbegin.space/<slug>/index.php`
 - **Путь установки:** тот же URL (с `/index.php` на конце — обязательно)
-- Права (минимум): `crm`, `user`, `placement`
+- Права (минимум): `crm`, `user`, `placement`, `department` (доступ по отделам из коробки, см. [rule-b24-department-based-access](rules/rule-b24-department-based-access.md))
 
 После сохранения Б24 покажет `client_id` и `client_secret`.
 
