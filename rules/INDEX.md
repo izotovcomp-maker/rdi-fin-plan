@@ -20,3 +20,4 @@
 | [rule-b24-rest-batch-not-loop](rule-b24-rest-batch-not-loop.md) | REST-вызовы для N id — через `batch()`, не `foreach` с `call()`: на ~85 записях разница 24-34с → 2-3с |
 | [rule-b24-department-based-access](rule-b24-department-based-access.md) | Доступ к приложению всегда по отделам, не только admin-only — уже реализовано в шаблоне из коробки |
 | [rule-b24-scope-add-needs-token-refresh](rule-b24-scope-add-needs-token-refresh.md) | Добавил scope в карточку local-app — `access_token` не обновляется сам, нужен форс `grant_type=refresh_token` (осторожно с полем `domain` в ответе) |
+| [rule-b24-security-baseline](rule-b24-security-baseline.md) | Безопасность: OAuth Б24 подтверждает личность, но не то, что ей можно — все REST-вызовы идут общим admin-токеном, значит IDOR/роли/гонки на файловом сторе целиком на коде проекта. По каждому классу риска — что применимо к этому шаблону, что нет |
