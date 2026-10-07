@@ -1,8 +1,8 @@
 www/env.php
 www/data/
+deploy.customer.env
 .DS_Store
 *.log
 .claude/*
 !.claude/commands
 !.claude/skills/
-source/
