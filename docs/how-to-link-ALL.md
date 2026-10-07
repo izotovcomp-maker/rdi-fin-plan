@@ -137,5 +137,5 @@ define('B24_CLIENT_SECRET', 'xxxxxxxxxxxxxxxxxxxxxxxx');  // из карточк
 
 Если выяснилось, что у заказчика есть SSH (или файлы можно доставить вашим
 сервером) — используйте [how-to-link.md](how-to-link.md) и `deploy.sh` с профилем
-`customer` (см. [docs/deploy-targets.md](docs/deploy-targets.md)): это проще и не
+`customer` (см. [deploy-targets.md](deploy-targets.md)): это проще и не
 требует ручной правки `APP_URL`.

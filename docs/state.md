@@ -34,7 +34,7 @@ description: Состояние проекта — где мы сейчас. Ж�
 - [ ] Открыть приложение из меню Б24 — двухфазный install-flow отработает сам
 
 *(Куда деплоим — `.deploy-target`, механизм — `docs/deploy-targets.md`. Сервер заказчика
-с SSH — профиль `customer`; без SSH — `how-to-link-ALL.md`, там `www/init.php`.)*
+с SSH — профиль `customer`; без SSH — `docs/how-to-link-ALL.md`, там `www/init.php`.)*
 
 ## Открытые вопросы / блокеры
 

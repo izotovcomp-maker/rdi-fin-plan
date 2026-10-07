@@ -63,7 +63,7 @@ bash deploy.sh               # профиль из .deploy-target ({{TARGET}})
 - Тип: **Серверное**
 - **Путь обработчика:** `{{HANDLER_URL}}`
 - **Путь установки:** тот же URL (с `/index.php` на конце — обязательно)
-- Права: `{{SCOPES}}` (`department` — доступ по отделам из коробки, см. [rule-b24-department-based-access](rules/rule-b24-department-based-access.md))
+- **«Настройка прав»** — отметь: `{{SCOPES}}` (список называет агент по `docs/project-brief.md`; `department` — доступ по отделам (режим по умолчанию), см. [rule-b24-department-based-access](/projects/docs/rules-b24/rule-b24-department-based-access.md))
 
 После сохранения Б24 покажет `client_id` и `client_secret`.
 

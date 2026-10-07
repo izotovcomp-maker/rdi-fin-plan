@@ -20,7 +20,6 @@ tmpl-b24-php-kilo/
 ├── kilo.jsonc                ← конфиг Kilo (MCP)
 ├── .claude/skills/           ← скиллы (Kilo читает эту папку тоже)
 ├── .claude/commands          ← симлинк на .kilo/commands
-├── how-to-link.md            ← пошаговая привязка приложения к порталу Б24
 ├── deploy.sh                 ← rsync www/ на сервер (локально или по SSH, профиль prod/lab/customer)
 ├── mydeploy.env.example      ← образец /projects/mydeploy.env — данные ВАШИХ серверов в одном месте
 ├── deploy.customer.env.example ← образец данных сервера заказчика (реальный файл в git не попадает)
@@ -35,8 +34,12 @@ tmpl-b24-php-kilo/
 │   ├── changelog.md           ← что уже сделано, по датам
 │   ├── decisions.md            ← почему так, а не иначе (D-NNN)
 │   ├── onboarding.md            ← протокол первого запуска (до .onboarding-done)
+│   ├── deploy-targets.md         ← профили деплоя prod / lab / customer, вопросы заказчику
+│   ├── how-to-link.md            ← привязка приложения к порталу Б24 (заготовка, агент подставляет значения)
+│   ├── how-to-link-ALL.md        ← то же вручную, для хостинга без SSH
 │   └── install-flow-diagram.md   ← диаграмма POST'ов install-flow
-├── rules/                    ← КБ граблей Битрикс24 (см. rules/INDEX.md)
+│   (граблей, правил и документации Б24 в проекте нет: общие папки `/projects/docs/rules-b24/`
+│    — см. `INDEX.md` — и `/projects/docs/b24-rest-docs/` — клон официальной документации)
 ├── scripts/
 │   └── snapshot.sh           ← коммит-снимок для журнала
 └── www/                      ← всё, что деплоится на хостинг
@@ -64,10 +67,10 @@ tmpl-b24-php-kilo/
 
 | Фаза | Где зашито в коде |
 |------|-------------------|
-| Save-tokens-gate (`INSTALL=Y` / `ONAPPINSTALL` / `!hasTokens` / expired) | [`index.php`](www/index.php), `api/install.php`. KB: [tokens-save-only-on-install](rules/b24-local-app-tokens-save-only-on-install.md) |
-| DOMAIN resolve chain (POST.DOMAIN → existing → REFERER not-self) | `B24::saveTokensFromInstall` в [`api/b24.php`](www/api/b24.php). KB: [marketplace-install-post-no-domain](rules/b24-marketplace-install-post-no-domain.md) |
+| Save-tokens-gate (`INSTALL=Y` / `ONAPPINSTALL` / `!hasTokens` / expired) | [`index.php`](www/index.php), `api/install.php`. KB: [tokens-save-only-on-install](/projects/docs/rules-b24/b24-local-app-tokens-save-only-on-install.md) |
+| DOMAIN resolve chain (POST.DOMAIN → existing → REFERER not-self) | `B24::saveTokensFromInstall` в [`api/b24.php`](www/api/b24.php). KB: [marketplace-install-post-no-domain](/projects/docs/rules-b24/b24-marketplace-install-post-no-domain.md) |
 | `installFinish` маркер | `installFinishedAt` / `installFinishedUsers` в `tokens.json`, рендер `renderInstallFinishPage()` |
-| Двухфазная установка | reload через 700ms в `renderInstallFinishPage()`. KB: [two-phase-install](rules/b24-local-app-two-phase-install.md) |
+| Двухфазная установка | reload через 700ms в `renderInstallFinishPage()`. KB: [two-phase-install](/projects/docs/rules-b24/b24-local-app-two-phase-install.md) |
 | Защита state через `<?php exit;?>` (без `.htaccess`) | [`api/store.php`](www/api/store.php) |
 | Cache-bust `?v=<mtime>` для css/js | `preg_replace_callback` в [`index.php`](www/index.php) |
 | Admin-gate через `user.admin` | [`api/session.php`](www/api/session.php) |
@@ -75,19 +78,19 @@ tmpl-b24-php-kilo/
 | CRON anti-overlap (flock) | [`bin/process.php`](www/bin/process.php) |
 | iframe X-Frame-Options / CSP (опционально) | закомментированный snippet в `index.php` — раскомментировать на коробке клиента |
 
-Полный install-чек-лист и каноны жёстких вопросов: [rules/rule-b24-install-checklist.md](rules/rule-b24-install-checklist.md).
+Полный install-чек-лист и каноны жёстких вопросов: [/projects/docs/rules-b24/rule-b24-install-checklist.md](/projects/docs/rules-b24/rule-b24-install-checklist.md).
 
 ## Как создать новый проект
 
 Деплой, хостинг и первый запуск (`deploy.sh` → env.php создаётся сам →
 регистрация в Б24) описаны **в одном месте** — [AGENTS.md → ИНФРАСТРУКТУРА СЕРВЕРА](AGENTS.md#инфраструктура-сервера).
-Пошаговая привязка `client_id`/`client_secret` — в [how-to-link.md](how-to-link.md).
+Пошаговая привязка `client_id`/`client_secret` — в [docs/how-to-link.md](docs/how-to-link.md).
 Здесь эти шаги не дублируются, чтобы не разъезжались при изменении флоу — правь только там.
 
 Это сценарий с автоматическим деплоем: свой сервер (`prod`, по умолчанию) или сервер
 заказчика по SSH (`customer`) — см. [docs/deploy-targets.md](docs/deploy-targets.md).
 Если у заказчика нет SSH (shared-хостинг, FTP-заливка) — ручной кейс: см.
-[how-to-link-ALL.md](how-to-link-ALL.md), там процедура через `www/init.php`.
+[docs/how-to-link-ALL.md](docs/how-to-link-ALL.md), там процедура через `www/init.php`.
 
 Коротко:
 

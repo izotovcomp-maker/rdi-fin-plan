@@ -3,7 +3,7 @@ description: Эта диаграмма — что когда происходи�
 ---
 # Install-flow — диаграмма POST'ов
 
-Шаблон делает двухфазный install (см. KB [b24-local-app-two-phase-install](../rules/b24-local-app-two-phase-install.md)).
+Шаблон делает двухфазный install (см. KB [b24-local-app-two-phase-install](/projects/docs/rules-b24/b24-local-app-two-phase-install.md)).
 Эта диаграмма — что когда происходит, чтобы при дебаге понимать «на каком POST'е сейчас».
 
 ## Полный сценарий: чистая установка на новом портале
@@ -59,7 +59,7 @@ description: Эта диаграмма — что когда происходи�
 ```
 
 \* `DOMAIN` на cloud не приходит — резолвим из `SERVER_ENDPOINT` через REFERER (фильтр not-self).
-KB: [b24-marketplace-install-post-no-domain](../rules/b24-marketplace-install-post-no-domain.md).
+KB: [b24-marketplace-install-post-no-domain](/projects/docs/rules-b24/b24-marketplace-install-post-no-domain.md).
 
 ## Открытие не-админом
 
@@ -85,7 +85,7 @@ KB: [b24-marketplace-install-post-no-domain](../rules/b24-marketplace-install-po
          │                                         │
 ```
 
-KB: [b24-local-app-tokens-save-only-on-install](../rules/b24-local-app-tokens-save-only-on-install.md) —
+KB: [b24-local-app-tokens-save-only-on-install](/projects/docs/rules-b24/b24-local-app-tokens-save-only-on-install.md) —
 **критично не сохранять токены этого юзера**, иначе админ-токен затрётся и proxy.php
 работающий под app-token начнёт возвращать ACCESS_DENIED.
 
@@ -105,11 +105,11 @@ B24 шлёт: POST /  (INSTALL=Y, новый APPLICATION_TOKEN, тот же memb
                                          │   нормальный UI, но app.info.INSTALLED=false
                                          │   → не-админы получают «приложение не установлено»
                                          │
-                                         │ Лечение: см. KB rules/b24-local-app-install-finish-per-user.md
+                                         │ Лечение: см. KB /projects/docs/rules-b24/b24-local-app-install-finish-per-user.md
                                          │ — сбросить state, открыть админом, installFinish заново
 ```
 
 Полный guard на APPLICATION_TOKEN mismatch — KB
-[b24-local-app-app-reinstall-application-token-mismatch](../rules/b24-local-app-app-reinstall-application-token-mismatch.md).
+[b24-local-app-app-reinstall-application-token-mismatch](/projects/docs/rules-b24/b24-local-app-app-reinstall-application-token-mismatch.md).
 В этом шаблоне базовый guard уже есть через `isFormal` save-policy, но более тонкая защита
 (сравнивать APPLICATION_TOKEN явно) добавляется при необходимости.

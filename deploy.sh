@@ -15,7 +15,7 @@
 # Slug = имя папки проекта. При первом деплое (env.php на сервере ещё нет) скрипт
 # генерирует env.php из www/env.example: APP_URL/APP_PATH/DATA_ROOT выводятся из
 # профиля и slug. Остаётся вписать B24_CLIENT_ID/SECRET после регистрации приложения
-# в Б24 — см. how-to-link.md.
+# в Б24 — см. docs/how-to-link.md.
 #
 # Блок веб-сервера (Caddy) скрипт НЕ правит: проверяет, есть ли он, и печатает готовый
 # блок для ручной вставки.
@@ -211,7 +211,7 @@ if [ "$WEB_SERVER" = "caddy" ]; then
     echo "    handle @blocked { respond 404 }"
   fi
 else
-  echo "ℹ Веб-сервер '${WEB_SERVER}': настрой маршрут для /${SLUG} вручную (см. how-to-link.md)."
+  echo "ℹ Веб-сервер '${WEB_SERVER}': настрой маршрут для /${SLUG} вручную (см. docs/how-to-link.md)."
 fi
 
 # ── 7. Итог ────────────────────────────────────────────────────────────────────
@@ -222,6 +222,6 @@ if [ "$DRY" = "1" ]; then
 fi
 echo "✓ Деплой завершён: ${APP_URL}/"
 if [ "$ENV_JUST_CREATED" = "1" ]; then
-  echo "  Осталось: зарегистрировать local-app в Б24 (how-to-link.md) и вписать"
+  echo "  Осталось: зарегистрировать local-app в Б24 (docs/how-to-link.md) и вписать"
   echo "  B24_CLIENT_ID/B24_CLIENT_SECRET в ${DEPLOY_DIR}/env.php на сервере."
 fi

@@ -22,7 +22,7 @@
 
 На команду «стартуем» / «деплой» / любой первый рабочий запрос — если онбординг уже
 пройден, **сразу деплою `bash deploy.sh`** (env.php создастся сам) и прошу
-зарегистрировать local-app в Б24 + вписать `B24_CLIENT_ID`/`SECRET` (how-to-link.md).
+зарегистрировать local-app в Б24 + вписать `B24_CLIENT_ID`/`SECRET` (docs/how-to-link.md).
 Вопросы задавай, только если без ответа нельзя продолжить и вывести его из проекта
 (`docs/project-brief.md`, `source/`, кода) невозможно. Не спрашивай то, что уже известно.
 
@@ -88,14 +88,15 @@
 
 ## КАК АГЕНТ РАБОТАЕТ В ЭТОМ ПРОЕКТЕ
 
-- **Install-flow** уже зашит — двухфазно через `state` + `installFinish` + reload. См. [rule-b24-install-checklist](rules/rule-b24-install-checklist.md)
-- **Доступ к приложению** — уже реализован не только admin-only, а ещё и по отделам (UI-кнопка «Доступ», чекбоксы), из коробки. При клонировании под нового клиента — подставить дефолтный ID отдела в `DEFAULT_ALLOWED_DEPARTMENTS` (`www/api/session.php`) и не забыть scope `department` при регистрации. См. [rule-b24-department-based-access](rules/rule-b24-department-based-access.md)
+- **Install-flow** уже зашит — двухфазно через `state` + `installFinish` + reload. См. [rule-b24-install-checklist](/projects/docs/rules-b24/rule-b24-install-checklist.md)
+- **Доступ к приложению** — из коробки три режима с переключателем в окне «Доступ» (действует один, права режимов не пересекаются; администраторы портала допущены всегда): **по отделам** (по умолчанию), **персонально** (список всех учётных записей: Фамилия Имя, почта, id), **всем на портале**. Режим и списки администратор выбирает сам кнопкой «Доступ» — в онбординге это не спрашиваем. Начальный режим — `DEFAULT_ACCESS_MODE` в `www/api/session.php`, отдел по умолчанию — `DEFAULT_ALLOWED_DEPARTMENTS`; право `department` нужно режиму по отделам (он по умолчанию), остальным режимам хватает `user`. Нужна своя механика — доработка `accessAllows()`. См. [rule-b24-department-based-access](/projects/docs/rules-b24/rule-b24-department-based-access.md)
 - **Деплой** — `bash deploy.sh` (rsync `www/` → `<DEPLOY_ROOT>/<slug>/`, slug = имя папки проекта; локально или по SSH — зависит от профиля из `.deploy-target`, по умолчанию `prod`). Данные серверов — в `/projects/mydeploy.env` и `deploy.customer.env`, не в коде. Сначала `bash deploy.sh --dry-run`. Подробности — [docs/deploy-targets.md](docs/deploy-targets.md). Код подхватывается сразу; блок веб-сервера для нового slug добавляется вручную (`deploy.sh` напечатает готовый).
-- **REST-вызовы** — через `$b24 = b24(); $b24->call('method', [...])`. Для CRM сущностей предпочитать `crm.item.*` с `entityTypeId`, не legacy `crm.<entity>.*`. См. [rule-crm-item-universal-api](rules/rule-crm-item-universal-api.md)
-- **REST-вызов для N id (foreach)** — НЕ `foreach ($ids as $id) { $b24->call(...) }`, а `$b24->batch([...])` чанками по 50. См. [rule-b24-rest-batch-not-loop](rules/rule-b24-rest-batch-not-loop.md) — на практике разница 24-34с → 2-3с
+- **Права приложения («Настройка прав»)** — каждый раз, когда просишь человека создать или изменить приложение в портале, **называй точный список прав** для поля «Настройка прав» в карточке (из «Скоупы Б24» в `docs/project-brief.md`: `crm user placement` + `department`, если доступ по отделам, + то, что требуют фичи). Появилась фича с новым правом — скажи, какое право добавить, и что токен надо обновить (см. [rule-b24-scope-add-needs-token-refresh](/projects/docs/rules-b24/rule-b24-scope-add-needs-token-refresh.md)). Не полагайся на то, что человек помнит список.
+- **REST-вызовы** — через `$b24 = b24(); $b24->call('method', [...])`. Для CRM сущностей предпочитать `crm.item.*` с `entityTypeId`, не legacy `crm.<entity>.*`. См. [rule-crm-item-universal-api](/projects/docs/rules-b24/rule-crm-item-universal-api.md)
+- **REST-вызов для N id (foreach)** — НЕ `foreach ($ids as $id) { $b24->call(...) }`, а `$b24->batch([...])` чанками по 50. См. [rule-b24-rest-batch-not-loop](/projects/docs/rules-b24/rule-b24-rest-batch-not-loop.md) — на практике разница 24-34с → 2-3с
 - **State** — через `storeRead(FILE)` / `storeWrite(FILE, $data)`. Все state-файлы в `data/`, защищены `<?php exit;?>` префиксом
 - **Безопасность** — «пользователь авторизован на портале Б24» защищает только вход, не то, что ему можно внутри приложения (все REST-вызовы идут одним общим admin-токеном, не токеном текущего юзера). См. раздел «БЕЗОПАСНОСТЬ» ниже — читать **до**, не после написания кода.
-- **Любые грабли Б24** — сначала `grep` по `rules/INDEX.md`, потом конкретный файл
+- **Любые грабли Б24** — сначала `grep` по `/projects/docs/rules-b24/INDEX.md`, потом конкретный файл
 
 ## БЕЗОПАСНОСТЬ
 
@@ -103,7 +104,7 @@
 запрос долетает до вашего PHP на VPS, и там всё как в любом другом проекте:
 секреты, доступ по ролям/отделам, IDOR, XSS, гонки состояний на файловом
 сторе — целиком на коде этого проекта. Полный разбор, что именно снимает
-архитектура, а что нет, по каждому классу риска — [rules/rule-b24-security-baseline](rules/rule-b24-security-baseline.md).
+архитектура, а что нет, по каждому классу риска — [/projects/docs/rules-b24/rule-b24-security-baseline](/projects/docs/rules-b24/rule-b24-security-baseline.md).
 
 **Когда читать:**
 1. **Сразу после онбординга**, перед тем как проектировать архитектуру
@@ -127,7 +128,7 @@
 - **Handler URL в карточке B24 local-app заканчивается на `/index.php`**, не на `/`.
 - **`template.html`, не `index.html`** — `file_server` в Caddy по умолчанию отдаёт `index.html` как статику раньше PHP. `template.html` этого не триггерит.
 - **Права `data/`** — PHP-FPM (`www-data`) пишет в `data/`, а файлы деплоятся другим пользователем. `deploy.sh` выставляет группу веб-сервера и права из профиля (`WEB_GROUP`, `DATA_MODE`: `2770` на `prod`, `0777` на учебном `lab`). Содержимое защищено `<?php exit;?>`, не правами ФС. Дополнительно на `prod` Caddy отдаёт 404 на `*/data/*`, `*.log`, `*.example`, `.git*`, `.env*` (блок `@blocked`).
-- **`APP_URL` в `init.php` (1%-кейс, чужой хостинг) определяется неверно** при Caddy-подобном `uri strip_prefix`: `SCRIPT_NAME` приходит без префикса пути. `deploy.sh` пишет `APP_URL` напрямую из профиля, без автоопределения. Актуально только для `how-to-link-ALL.md`.
+- **`APP_URL` в `init.php` (1%-кейс, чужой хостинг) определяется неверно** при Caddy-подобном `uri strip_prefix`: `SCRIPT_NAME` приходит без префикса пути. `deploy.sh` пишет `APP_URL` напрямую из профиля, без автоопределения. Актуально только для `docs/how-to-link-ALL.md`.
 - **REFERER-fence в session-gate двусторонний** — пропускает и B24-портал, и self-APP_URL. iframe-reload после `BX24.installFinish()` приходит с self-REFERER, без этого мигнёт 403 между установкой и финальной страницей.
 
 ---
@@ -146,20 +147,24 @@
 
 ## ДОКУМЕНТАЦИЯ — ПРОВЕРЯЙ КОГДА ЧТО-ТО НЕ РАБОТАЕТ
 
+**Общая папка знаний — `/projects/docs/`** (одна на все проекты, копий в проектах не держим):
+`rules-b24/` — грабли и правила Б24 (`INDEX.md` + файлы), `b24-rest-docs/` — клон официальной
+документации. Правило или грабля обновляется **только там** — сразу для всех проектов.
+Нет папок на этой машине — создай их и склонируй документацию (см. пункт 2).
+
 Битрикс24 регулярно обновляют API и документацию. Если что-то сломалось или
 не идёт — не гадай, иди по цепочке поиска в этом порядке:
 
-1. **`/rules`** — сначала `grep` по [rules/INDEX.md](rules/INDEX.md). Возможно,
-   эта грабля уже найдена и описана.
+1. **Правила** — сначала `grep` по [/projects/docs/rules-b24/INDEX.md](/projects/docs/rules-b24/INDEX.md).
+   Возможно, эта грабля уже найдена и описана.
 2. **Локальный клон офиц. репозитория** `bitrix-tools/b24-rest-docs`
-   (Documentation as Code, ~3490 файлов). Путь `<B24_DOCS_CLONE>` — переменная в
-   `/projects/mydeploy.env` (на основной машине `/home/deploy/refs/b24-rest-docs`):
+   (Documentation as Code, ~3490 файлов) в `/projects/docs/b24-rest-docs`:
    ```bash
-   grep -rn "<термин>" <B24_DOCS_CLONE> --include="*.md"
+   grep -rn "<термин>" /projects/docs/b24-rest-docs --include="*.md"
    ```
    - Папки нет на машине → склонировать:
-     `git clone --depth 1 https://github.com/bitrix-tools/b24-rest-docs.git <B24_DOCS_CLONE>`
-   - Подозрение, что данные устарели → `cd <B24_DOCS_CLONE> && git pull`
+     `git clone --depth 1 https://github.com/bitrix-tools/b24-rest-docs.git /projects/docs/b24-rest-docs`
+   - Подозрение, что данные устарели → `cd /projects/docs/b24-rest-docs && git pull`
 3. **MCP `bitrix24-docs`** — поиск прямо из редактора, если в клоне не нашлось.
 4. **Online-ссылки** — последний шаг, только если 1–3 не дали ответа:
 
@@ -169,9 +174,9 @@
 | Битрикс24 — виджеты CRM | https://apidocs.bitrix24.ru/api-reference/widgets/crm/index.html |
 | Битрикс24 — справочник REST API | https://apidocs.bitrix24.ru/api-reference/ |
 
-**Нашёл решение не через `/rules`?** Если грабля вневременная (не специфична
-для конкретного клиента/проекта) — оформи файл в `/rules` + строку в
-`rules/INDEX.md`, чтобы не искать повторно в следующий раз.
+**Нашёл решение не через правила?** Если грабля вневременная (не специфична
+для конкретного клиента/проекта) — оформи файл в `/projects/docs/rules-b24/` + строку в
+`/projects/docs/rules-b24/INDEX.md` (не в папку проекта), чтобы не искать повторно в следующий раз.
 
 ## ИНФРАСТРУКТУРА СЕРВЕРА
 
@@ -179,7 +184,7 @@
 Они в профилях деплоя: `prod` (по умолчанию) и `lab` — `/projects/mydeploy.env`,
 `customer` — `deploy.customer.env` в корне проекта. Механизм целиком — в
 [docs/deploy-targets.md](docs/deploy-targets.md): читай его, когда речь о деплое,
-сервере, `how-to-link.md` или заказчике со своим сервером.
+сервере, `docs/how-to-link.md` или заказчике со своим сервером.
 
 ### Структура на сервере
 
@@ -231,22 +236,22 @@ handle /<slug>* {
 
 1. `bash deploy.sh --dry-run`, затем `bash deploy.sh` — `env.php` создаётся с верным `APP_URL`.
 2. Вставить блок Caddy (см. выше) и перезагрузить.
-3. Зарегистрировать local-app в Б24 по [how-to-link.md](how-to-link.md) и вписать
+3. Зарегистрировать local-app в Б24 по [docs/how-to-link.md](docs/how-to-link.md) и вписать
    `B24_CLIENT_ID` и `B24_CLIENT_SECRET` в `<DEPLOY_ROOT>/<slug>/env.php` **на сервере**.
 
 **Хостинг заказчика без SSH** (shared-хостинг, FTP-заливка): `deploy.sh` не подходит.
-Смотри [how-to-link-ALL.md](how-to-link-ALL.md) — процедура через `www/init.php`,
+Смотри [docs/how-to-link-ALL.md](docs/how-to-link-ALL.md) — процедура через `www/init.php`,
 который сам определяет host-пути по фактическому запросу.
 
 ### Регистрация приложения в Битрикс24
 
-Полная пошаговая инструкция — [how-to-link.md](how-to-link.md) (агент подставляет в
+Полная пошаговая инструкция — [docs/how-to-link.md](docs/how-to-link.md) (агент подставляет в
 неё значения проекта и профиля).
 
 - Тип: **Серверное** (не Статичное)
 - **Путь обработчика:** `<APP_URL>/index.php` (`<APP_URL>` = `PUBLIC_BASE_URL` профиля + `/<slug>`)
 - **Путь установки:** тот же URL (с `/index.php` на конце — обязательно)
-- Права: `crm`, `user`, `placement`, `department` — минимум для шаблона (`department` — доступ по отделам из коробки, см. [rule-b24-department-based-access](rules/rule-b24-department-based-access.md))
+- Права: `crm`, `user`, `placement`, `department` — минимум для шаблона (`department` — доступ по отделам из коробки, см. [rule-b24-department-based-access](/projects/docs/rules-b24/rule-b24-department-based-access.md))
 - Прямой deep-link на форму создания с предзаполненными правами Б24 не отдаёт (нет такого query-параметра) — открывать форму вручную (портал → Приложения → Разработчикам → Готовые сценарии → Другое → Локальное приложение) или по официальной инструкции [Разработчикам: как создать вебхуки и приложения для Битрикс24](https://helpdesk.bitrix24.ru/open/20886106/#2)
 
 ## Прежде чем заявить, что готово
