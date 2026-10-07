@@ -25,8 +25,15 @@ description: Куда и как деплоить — профили prod / lab /
 
 ## Что делает и чего не делает `deploy.sh`
 
-Делает: rsync `www/` на сервер (локально или по SSH), создаёт `env.php` при
-первом деплое (`APP_URL`, `APP_PATH`, `DATA_ROOT` выводятся из профиля и slug),
+```bash
+bash deploy.sh --dry-run    # что изменится; ничего не меняет
+bash deploy.sh              # профиль из .deploy-target (нет файла — prod)
+bash deploy.sh --target lab # разово другой профиль
+```
+
+Делает: rsync `www/` в `<DEPLOY_ROOT>/<slug>/` (локально или по SSH; исключает `data/` и `init.php`),
+создаёт `env.php` при первом деплое из `env.example` (`APP_URL`, `APP_PATH`, `DATA_ROOT`
+выводятся из профиля и slug; при последующих деплоях `env.php` **не трогает**),
 выставляет группу и права на `data/`, **проверяет**, есть ли блок для этого slug
 в Caddyfile.
 

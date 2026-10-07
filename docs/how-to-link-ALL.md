@@ -94,7 +94,7 @@ define('APP_URL', 'https://клиент-домен.ру/фактический-�
 - **Путь обработчика:** значение `handler URL` со страницы `init.php`
   (оканчивается на `/index.php`)
 - **Путь установки:** тот же URL
-- Права (минимум): `crm`, `user`, `placement`
+- Права (минимум): `crm`, `user`, `placement`, `department` (`department` — доступ по отделам, режим по умолчанию; перечень прав для проекта — по `docs/project-brief.md`)
 
 После сохранения Б24 покажет `client_id` и `client_secret`.
 
