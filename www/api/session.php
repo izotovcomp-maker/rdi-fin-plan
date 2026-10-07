@@ -11,14 +11,54 @@ const SESSION_COOKIE = 'gsp_session';
 
 // Отделы, чьим сотрудникам разрешён доступ к приложению, если настройка
 // в settings.php (ключ allowedDepartments) ещё не сохранена явно — см.
-// api/access.php и rules/rule-b24-department-based-access.md. Подставить
+// api/access.php и /projects/docs/rules-b24/rule-b24-department-based-access.md. Подставить
 // реальный дефолтный ID отдела под конкретный проект (обычно «Администрация»).
+// Действует только в режиме доступа «по отделам» (см. ACCESS_MODES ниже).
 const DEFAULT_ALLOWED_DEPARTMENTS = [1];
 
 function allowedDepartmentIds(): array {
     $s = loadSettings();
     $ids = $s['allowedDepartments'] ?? DEFAULT_ALLOWED_DEPARTMENTS;
     return array_values(array_map('intval', is_array($ids) ? $ids : DEFAULT_ALLOWED_DEPARTMENTS));
+}
+
+// Режимы доступа для не-администраторов — переключатель в окне «Доступ» (api/access.php).
+// Действует ровно ОДИН режим; списки остальных режимов хранятся в settings.php, но не
+// учитываются, поэтому права разных режимов не пересекаются:
+//   departments — сотрудники отделов из allowedDepartments (по умолчанию)
+//   users       — персонально выбранные учётные записи (allowedUsers)
+//   all         — любой, кого Б24 подтвердил как авторизованного пользователя портала
+// Администраторы портала допускаются во всех режимах — заблокировать себя нельзя.
+const ACCESS_MODES        = ['departments', 'users', 'all'];
+const DEFAULT_ACCESS_MODE = 'departments';
+
+function accessMode(): string {
+    $m = loadSettings()['accessMode'] ?? DEFAULT_ACCESS_MODE;
+    return (is_string($m) && in_array($m, ACCESS_MODES, true)) ? $m : DEFAULT_ACCESS_MODE;
+}
+
+/** ID персонально допущенных пользователей (строки, без дублей). */
+function allowedUserIds(): array {
+    $ids = loadSettings()['allowedUsers'] ?? [];
+    if (!is_array($ids)) return [];
+    $ids = array_filter(array_map('strval', $ids), fn($x) => $x !== '');
+    return array_values(array_unique($ids));
+}
+
+/** Чистое решение о допуске. $userId = null — пользователя Б24 не опознал. */
+function accessAllows(string $mode, bool $isAdmin, ?string $userId, array $departments,
+                      array $allowedDepartments, array $allowedUsers): bool {
+    if ($isAdmin) return true;
+    switch ($mode) {
+        case 'departments':
+            return (bool)array_intersect(array_map('intval', $departments), array_map('intval', $allowedDepartments));
+        case 'users':
+            return $userId !== null && in_array((string)$userId, array_map('strval', $allowedUsers), true);
+        case 'all':
+            return $userId !== null;
+        default:
+            return false;
+    }
 }
 
 function loadSessions(): array {
@@ -38,13 +78,17 @@ function cleanupSessions(): array {
     return $alive;
 }
 
-/** Живой (не по слепку на момент выдачи сессии) допуск: админ — всегда,
- * иначе отдел сессии должен быть всё ещё в текущем allowedDepartmentIds() —
- * снятая админом галочка отзывает доступ немедленно, не дожидаясь TTL. */
+/** Живой (не по слепку на момент выдачи сессии) допуск по текущему режиму и спискам:
+ * снятая админом галочка или смена режима отзывает доступ немедленно, не дожидаясь TTL. */
 function sessionIsCurrentlyAllowed(array $session): bool {
-    if (!empty($session['isAdmin'])) return true;
-    $depts = $session['departments'] ?? [];
-    return (bool)array_intersect($depts, allowedDepartmentIds());
+    return accessAllows(
+        accessMode(),
+        !empty($session['isAdmin']),
+        isset($session['userId']) ? (string)$session['userId'] : null,
+        (array)($session['departments'] ?? []),
+        allowedDepartmentIds(),
+        allowedUserIds()
+    );
 }
 
 function revokeSessionByToken(string $token): void {
@@ -147,18 +191,21 @@ function tryCreateSessionFromB24Post(): ?array {
                  && strpos($referer, rtrim(APP_URL, '/') . '/') === 0;
     if (!$isB24Ref && !$isSelfRef) return null;
 
-    // Access-gate: администраторам — всегда, остальным — если их отдел
-    // (UF_DEPARTMENT) есть в списке allowedDepartmentIds() (настраивается
-    // через api/access.php, см. rules/rule-b24-department-based-access.md).
+    // Access-gate: администраторам — всегда, остальным — по действующему режиму
+    // доступа (отделы / персонально / все авторизованные), см. accessAllows().
+    // Настраивается через api/access.php.
     if ($authId === '') {
-        $GLOBALS['__session_denial_reason'] = 'not_admin';
+        $GLOBALS['__session_denial_reason'] = 'no_access';
         return null;
     }
     $isAdmin = b24IsPortalAdmin($authId, $stored);
     $info    = b24CurrentUserInfo($authId, $stored);
-    $inAllowedDept = $info && array_intersect($info['departments'], allowedDepartmentIds());
-    if (!$isAdmin && !$inAllowedDept) {
-        $GLOBALS['__session_denial_reason'] = 'not_admin';
+    $allowed = accessAllows(
+        accessMode(), $isAdmin, $info['id'] ?? null, $info['departments'] ?? [],
+        allowedDepartmentIds(), allowedUserIds()
+    );
+    if (!$allowed) {
+        $GLOBALS['__session_denial_reason'] = 'no_access';
         return null;
     }
 

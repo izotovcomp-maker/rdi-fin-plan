@@ -60,6 +60,28 @@ header h1 {
 .dept-check-row { display: flex; align-items: center; gap: 8px; }
 .dept-check-row label { cursor: pointer; }
 
+.modal-wide { max-width: 560px; }
+.access-modes { display: flex; gap: 6px; margin: 14px 0 6px; flex-wrap: wrap; }
+.access-mode {
+  display: flex; align-items: center; gap: 6px; cursor: pointer;
+  border: 1.5px solid var(--border); border-radius: 6px; padding: 6px 12px; font-size: 0.92rem;
+}
+.access-mode:has(input:checked) { border-color: var(--accent); background: #eef3f8; }
+.access-section[hidden] { display: none; }
+.access-search {
+  width: 100%; box-sizing: border-box; margin: 6px 0 8px; padding: 7px 10px;
+  border: 1.5px solid var(--border); border-radius: 6px; font: inherit;
+}
+.user-check-list { display: flex; flex-direction: column; max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
+.user-check-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.user-check-row:last-child { border-bottom: 0; }
+.user-check-row:hover { background: #f6f8fa; }
+.user-check-row[hidden] { display: none; }
+.user-check-name { flex: 1 1 auto; min-width: 0; }
+.user-check-email { color: var(--muted); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px; }
+.user-check-id { color: var(--muted); font-size: 0.8rem; min-width: 38px; text-align: right; }
+.access-count { margin-top: 6px; font-size: 0.85rem; }
+
 main {
   display: grid;
   gap: 16px;

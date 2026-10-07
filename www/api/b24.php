@@ -8,7 +8,7 @@ require_once __DIR__ . '/store.php';
  * Хранит токены в B24_TOKENS_FILE, сам refresh'ит при expired_token,
  * сам persist'ит изменения через storeWrite.
  *
- * KB: rules/b24-marketplace-install-post-no-domain.md (фильтр REFERER + резолв domain).
+ * KB: /projects/docs/rules-b24/b24-marketplace-install-post-no-domain.md (фильтр REFERER + резолв domain).
  */
 final class B24 {
     private string $clientId;
@@ -99,11 +99,11 @@ final class B24 {
      * установке, формальном (re)install (`INSTALL=Y` / `ONAPPINSTALL`) или
      * истёкшем access — не на каждом open'е случайного юзера. Используется
      * и в index.php (основной handler), и в api/install.php (alternative) —
-     * не разводить логику по двум местам. KB: rules/b24-local-app-tokens-save-only-on-install.md.
+     * не разводить логику по двум местам. KB: /projects/docs/rules-b24/b24-local-app-tokens-save-only-on-install.md.
      *
      * $requesterIsAdmin гейтит именно ветку isAccessExpired(): раз не-админы
      * тоже могут открывать приложение (доступ по отделам, см.
-     * rules/rule-b24-department-based-access.md), обычный сотрудник, открывший
+     * /projects/docs/rules-b24/rule-b24-department-based-access.md), обычный сотрудник, открывший
      * приложение в момент истечения access_token, иначе перехватил бы общий
      * REST-токен на себя — все вызовы пошли бы под его (более слабыми) правами
      * в CRM. isFirst/isFormal не гейтятся — первая установка и ONAPPINSTALL по
@@ -252,6 +252,60 @@ function b24CurrentUserInfo(string $authId, string $domain): ?array {
         'id'          => (string)$result['ID'],
         'departments' => is_array($depts) ? array_map('intval', $depts) : [],
     ];
+}
+
+/**
+ * Активные сотрудники портала для персонального доступа: [{id, name «Фамилия Имя», email}].
+ * user.get отдаёт по 50 записей: первая страница даёт total, остальные — ОДНИМ batch
+ * (не циклом вызовов, см. /projects/docs/rules-b24/rule-b24-rest-batch-not-loop.md).
+ * $b24 — экземпляр B24 (нужны call() и batch()). Ошибка REST → RuntimeException.
+ */
+function b24ListUsers($b24): array {
+    $params = [
+        'FILTER' => ['ACTIVE' => 'true', 'USER_TYPE' => 'employee'],
+        'SORT'   => 'LAST_NAME',
+        'ORDER'  => 'asc',
+        'select' => ['ID', 'NAME', 'LAST_NAME', 'EMAIL', 'ACTIVE'],
+    ];
+    $first = $b24->call('user.get', $params + ['start' => 0]);
+    if (!empty($first['error'])) {
+        throw new RuntimeException('user.get: ' . ($first['error_description'] ?? $first['error']));
+    }
+    $rows  = (array)($first['result'] ?? []);
+    $total = (int)($first['total'] ?? count($rows));
+
+    $cmds = [];
+    for ($start = 50; $start < $total; $start += 50) {
+        $cmds['p' . $start] = ['user.get', $params + ['start' => $start]];
+    }
+    foreach (array_chunk($cmds, 50, true) as $chunk) {   // в batch не больше 50 команд
+        $res = $b24->batch($chunk);
+        if (!empty($res['error'])) {
+            throw new RuntimeException('batch: ' . ($res['error_description'] ?? $res['error']));
+        }
+        $pages = (array)($res['result']['result'] ?? []);
+        $errs  = (array)($res['result']['result_error'] ?? []);
+        if ($errs) {
+            $e = reset($errs);
+            throw new RuntimeException('user.get (batch): ' . (is_array($e) ? ($e['error_description'] ?? json_encode($e)) : (string)$e));
+        }
+        foreach (array_keys($chunk) as $k) {
+            foreach ((array)($pages[$k] ?? []) as $u) $rows[] = $u;
+        }
+    }
+
+    $users = [];
+    foreach ($rows as $u) {
+        if (!is_array($u) || empty($u['ID'])) continue;
+        if (array_key_exists('ACTIVE', $u) && $u['ACTIVE'] === false) continue;   // уволенные
+        $name = trim((string)($u['LAST_NAME'] ?? '') . ' ' . (string)($u['NAME'] ?? ''));
+        $users[] = [
+            'id'    => (string)$u['ID'],
+            'name'  => $name !== '' ? $name : ('ID ' . $u['ID']),
+            'email' => (string)($u['EMAIL'] ?? ''),
+        ];
+    }
+    return $users;   // порядок задаёт Б24 (SORT=LAST_NAME); локаль-сортировка — в браузере (без mbstring)
 }
 
 /** Резолв userId по AUTH_ID через REST user.current. */

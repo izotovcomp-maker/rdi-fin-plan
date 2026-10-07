@@ -42,10 +42,33 @@
   </div>
 
   <div id="access-modal-overlay" class="modal-overlay" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="access-modal-title">
+    <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="access-modal-title">
       <h2 id="access-modal-title">Доступ к приложению</h2>
-      <p class="muted">Администраторы портала видят приложение всегда. Отметь отделы, сотрудникам которых доступ нужен дополнительно.</p>
-      <div id="access-dept-list" class="dept-check-list"></div>
+      <p class="muted">Администраторы портала видят приложение всегда. Выбери, как открыть доступ остальным —
+        действует один режим, списки других режимов сохраняются, но не учитываются.</p>
+
+      <div class="access-modes" role="radiogroup" aria-label="Режим доступа">
+        <label class="access-mode"><input type="radio" name="access-mode" value="departments"> По отделам</label>
+        <label class="access-mode"><input type="radio" name="access-mode" value="users"> Персонально</label>
+        <label class="access-mode"><input type="radio" name="access-mode" value="all"> Всем на портале</label>
+      </div>
+
+      <section id="access-section-departments" class="access-section">
+        <p class="muted">Доступ у сотрудников отмеченных отделов. Переводя сотрудника между отделами, управляешь его доступом.</p>
+        <div id="access-dept-list" class="dept-check-list"></div>
+      </section>
+
+      <section id="access-section-users" class="access-section" hidden>
+        <p class="muted">Доступ только у отмеченных учётных записей.</p>
+        <input type="search" id="access-user-search" class="access-search" placeholder="Поиск: фамилия, имя, почта, id" autocomplete="off">
+        <div id="access-users-list" class="user-check-list"></div>
+        <div id="access-users-count" class="muted access-count"></div>
+      </section>
+
+      <section id="access-section-all" class="access-section" hidden>
+        <p class="muted">Приложение откроется любому сотруднику, авторизованному на портале. Ограничений по отделам и персонально нет.</p>
+      </section>
+
       <div id="access-modal-error" class="modal-error" hidden></div>
       <div class="modal-actions">
         <button type="button" id="access-modal-cancel" class="btn-secondary">Отмена</button>

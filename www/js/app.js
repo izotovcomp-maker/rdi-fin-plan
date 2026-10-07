@@ -50,65 +50,153 @@
     });
   };
 
-  // ── доступ по отделам (админ-настройка) ─────────────────────────────────
-  // См. rules/rule-b24-department-based-access.md — обязательный паттерн
-  // для всех проектов на этом движке, не косметика конкретного проекта.
+  // ── доступ к приложению (админ-настройка) ───────────────────────────────────
+  // Переключатель режима: по отделам / персонально / всем. Действует один режим;
+  // списки других режимов сохраняются, но не учитываются (см. accessAllows() в session.php,
+  // /projects/docs/rules-b24/rule-b24-department-based-access.md).
 
-  var accessBtn = document.getElementById('access-btn');
-  var accessModalOverlay = document.getElementById('access-modal-overlay');
-  var accessDeptList = document.getElementById('access-dept-list');
-  var accessModalError = document.getElementById('access-modal-error');
-  var accessModalCancel = document.getElementById('access-modal-cancel');
-  var accessModalSave = document.getElementById('access-modal-save');
+  var $ = function (id) { return document.getElementById(id); };
+  var accessBtn = $('access-btn');
+  var overlay = $('access-modal-overlay');
+  var deptList = $('access-dept-list');
+  var usersList = $('access-users-list');
+  var userSearch = $('access-user-search');
+  var usersCount = $('access-users-count');
+  var errBox = $('access-modal-error');
+  var saveBtn = $('access-modal-save');
+  var sections = {
+    departments: $('access-section-departments'),
+    users: $('access-section-users'),
+    all: $('access-section-all'),
+  };
 
-  function openAccessModal() {
-    accessModalError.hidden = true;
-    accessDeptList.innerHTML = '<div class="muted">Загрузка…</div>';
-    accessModalOverlay.hidden = false;
+  // Состояние окна: выбранные id держим в Set, а не только в DOM — список людей
+  // подгружается лениво и фильтруется поиском.
+  var st = null;
 
-    window.api('GET', 'api/access.php').then(function (res) {
-      var allowed = new Set(res.allowed || []);
-      accessDeptList.innerHTML = '';
-      (res.departments || []).forEach(function (d) {
-        var row = document.createElement('div');
-        row.className = 'dept-check-row';
-        var id = 'dept-' + d.id;
-        row.innerHTML = '<input type="checkbox" id="' + id + '" value="' + d.id + '">'
-          + '<label for="' + id + '"></label>';
-        row.querySelector('label').textContent = d.name;
-        row.querySelector('input').checked = allowed.has(d.id);
-        accessDeptList.appendChild(row);
-      });
-    }).catch(function (err) {
-      accessDeptList.innerHTML = '';
-      accessModalError.textContent = err.message;
-      accessModalError.hidden = false;
+  function showError(msg) { errBox.textContent = msg; errBox.hidden = !msg; }
+
+  function currentMode() {
+    var r = document.querySelector('input[name="access-mode"]:checked');
+    return r ? r.value : 'departments';
+  }
+
+  function showMode(mode) {
+    Object.keys(sections).forEach(function (k) { sections[k].hidden = (k !== mode); });
+    if (mode === 'users') loadUsers();
+  }
+
+  function renderDepartments(departments) {
+    deptList.innerHTML = '';
+    departments.forEach(function (d) {
+      var row = document.createElement('div');
+      row.className = 'dept-check-row';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.id = 'dept-' + d.id; cb.value = d.id;
+      cb.checked = st.depts.has(d.id);
+      cb.addEventListener('change', function () { cb.checked ? st.depts.add(d.id) : st.depts.delete(d.id); });
+      var label = document.createElement('label');
+      label.htmlFor = cb.id; label.textContent = d.name;
+      row.appendChild(cb); row.appendChild(label);
+      deptList.appendChild(row);
     });
   }
 
-  function closeAccessModal() {
-    accessModalOverlay.hidden = true;
+  function updateUsersCount() {
+    usersCount.textContent = st.users.size ? ('Отмечено: ' + st.users.size) : 'Никто не отмечен';
+  }
+
+  function renderUsers(users) {
+    var collator = new Intl.Collator('ru');
+    users.sort(function (a, b) { return collator.compare(a.name, b.name); });
+    usersList.innerHTML = '';
+    users.forEach(function (u) {
+      var row = document.createElement('label');
+      row.className = 'user-check-row';
+      row.dataset.search = (u.name + ' ' + u.email + ' ' + u.id).toLowerCase();
+      var cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.value = u.id;
+      cb.checked = st.users.has(u.id);
+      cb.addEventListener('change', function () {
+        cb.checked ? st.users.add(u.id) : st.users.delete(u.id);
+        updateUsersCount();
+      });
+      var name = document.createElement('span');
+      name.className = 'user-check-name'; name.textContent = u.name;
+      var email = document.createElement('span');
+      email.className = 'user-check-email'; email.textContent = u.email; email.title = u.email;
+      var id = document.createElement('span');
+      id.className = 'user-check-id'; id.textContent = '#' + u.id;
+      row.appendChild(cb); row.appendChild(name); row.appendChild(email); row.appendChild(id);
+      usersList.appendChild(row);
+    });
+    if (!users.length) usersList.innerHTML = '<div class="muted" style="padding:10px">Пользователи не найдены</div>';
+    updateUsersCount();
+  }
+
+  function loadUsers() {
+    if (st.usersLoaded || st.usersLoading) return;
+    st.usersLoading = true;
+    usersList.innerHTML = '<div class="muted" style="padding:10px">Загрузка списка сотрудников…</div>';
+    window.api('GET', 'api/access.php?list=users').then(function (res) {
+      st.usersLoaded = true;
+      renderUsers(res.users || []);
+    }).catch(function (err) {
+      usersList.innerHTML = '';
+      showError(err.message);
+    }).finally(function () { st.usersLoading = false; });
+  }
+
+  function filterUsers() {
+    var q = userSearch.value.trim().toLowerCase();
+    Array.prototype.forEach.call(usersList.children, function (row) {
+      row.hidden = !!q && (row.dataset.search || '').indexOf(q) === -1;
+    });
+  }
+
+  function openAccessModal() {
+    showError('');
+    st = { depts: new Set(), users: new Set(), usersLoaded: false, usersLoading: false };
+    userSearch.value = '';
+    deptList.innerHTML = '<div class="muted">Загрузка…</div>';
+    usersList.innerHTML = '';
+    overlay.hidden = false;
+
+    window.api('GET', 'api/access.php').then(function (res) {
+      st.depts = new Set(res.allowedDepartments || []);
+      st.users = new Set((res.allowedUsers || []).map(String));
+      var radio = document.querySelector('input[name="access-mode"][value="' + res.mode + '"]');
+      if (radio) radio.checked = true;
+      renderDepartments(res.departments || []);
+      showMode(currentMode());
+    }).catch(function (err) {
+      deptList.innerHTML = '';
+      showError(err.message);
+    });
+  }
+
+  function closeAccessModal() { overlay.hidden = true; }
+
+  function saveAccess() {
+    var mode = currentMode();
+    var payload = { mode: mode, allowedDepartments: Array.from(st.depts) };
+    // Список людей отправляем, только если его открывали: иначе сохранённый не трогаем.
+    if (st.usersLoaded) payload.allowedUsers = Array.from(st.users);
+    saveBtn.disabled = true;
+    showError('');
+    window.api('POST', 'api/access.php', payload).then(closeAccessModal).catch(function (err) {
+      showError(err.message);
+    }).finally(function () { saveBtn.disabled = false; });
   }
 
   if (accessBtn) {
     if (window.APP_IS_ADMIN) accessBtn.hidden = false;
     accessBtn.addEventListener('click', openAccessModal);
-    accessModalCancel.addEventListener('click', closeAccessModal);
-    accessModalSave.addEventListener('click', function () {
-      var ids = Array.prototype.map.call(
-        accessDeptList.querySelectorAll('input[type=checkbox]:checked'),
-        function (el) { return Number(el.value); }
-      );
-      accessModalSave.disabled = true;
-      accessModalError.hidden = true;
-      window.api('POST', 'api/access.php', { allowed: ids }).then(function () {
-        closeAccessModal();
-      }).catch(function (err) {
-        accessModalError.textContent = err.message;
-        accessModalError.hidden = false;
-      }).finally(function () {
-        accessModalSave.disabled = false;
-      });
+    $('access-modal-cancel').addEventListener('click', closeAccessModal);
+    saveBtn.addEventListener('click', saveAccess);
+    userSearch.addEventListener('input', filterUsers);
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="access-mode"]'), function (r) {
+      r.addEventListener('change', function () { showMode(currentMode()); });
     });
   }
 })();

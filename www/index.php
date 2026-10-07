@@ -27,7 +27,7 @@ require_once __DIR__ . '/api/session.php';
 //      . "https://*.bitrix24.eu https://*.bitrix24.com.br "
 //      . "'self'");
 //
-// См. rules/b24-iframe-x-frame-options-csp.md для подробностей.
+// См. /projects/docs/rules-b24/b24-iframe-x-frame-options-csp.md для подробностей.
 
 // ── 1. INSTALL POST handler ──────────────────────────────────────────────
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -78,13 +78,13 @@ if (!$session) {
     http_response_code(403);
     header('Content-Type: text/html; charset=utf-8');
     $reason = sessionDenialReason();
-    if ($reason === 'not_admin') {
-        echo '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Доступ только для администраторов</title>'
+    if ($reason === 'no_access') {
+        echo '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Нет доступа к приложению</title>'
            . '<style>body{font-family:system-ui,sans-serif;max-width:560px;margin:80px auto;padding:0 20px;color:#333;text-align:center}h1{color:#b07b00;margin-bottom:8px}p{line-height:1.55;color:#555}</style>'
            . '</head><body>'
-           . '<h1>Доступ только для администраторов</h1>'
-           . '<p>Это приложение доступно только администраторам портала Bitrix24. '
-           . 'Если тебе нужен доступ — попроси админа открыть приложение и настроить тебя.</p>'
+           . '<h1>Нет доступа к приложению</h1>'
+           . '<p>У твоей учётной записи нет доступа к этому приложению. '
+           . 'Если он нужен — попроси администратора портала открыть тебе доступ (кнопка «Доступ» в приложении).</p>'
            . '</body></html>';
     } else {
         echo '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Доступ запрещён</title>'
