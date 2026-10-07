@@ -57,4 +57,4 @@
 
 (Локальный клон для оффлайн-грепа: `/home/deploy/refs/b24-rest-docs/settings/app-installation/installation-finish.md`,
 `.../local-apps/installation-master.md`, `sdk/bx24-js-sdk/system-functions/bx24-install-finish.md`
-— см. `CLAUDE.md` → «ДОКУМЕНТАЦИЯ» про поддержание клона в актуальном состоянии.)
+— см. `AGENTS.md` → «ДОКУМЕНТАЦИЯ» про поддержание клона в актуальном состоянии.)

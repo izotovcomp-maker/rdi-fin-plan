@@ -3,5 +3,6 @@ www/data/
 .DS_Store
 *.log
 .claude/*
-!.claude/commands/
+!.claude/commands
 !.claude/skills/
+source/
