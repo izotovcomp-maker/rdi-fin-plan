@@ -1,14 +1,4 @@
----
-obj:
-  - IT
-tags:
-  - AI
-  - template
-prjfolder: tmpl-b24-php
-prjurl: /
-ssum: "**Контекст 1го чтения**"
----
-# [ШАБЛОН — single-tenant B24 local-app PHP] Новый проект
+# Шаблон single-tenant B24 local-app PHP — правила для агента
 
 > **Единый источник правил для любого агента.** Kilo читает этот файл сам;
 > Claude Code — через `CLAUDE.md` (там одна строка `@AGENTS.md`). Правила
@@ -28,14 +18,15 @@ ssum: "**Контекст 1го чтения**"
 
 **Проверь наличие файла `.onboarding-done` в корне проекта:**
 - Файла **нет** → онбординг не пройден. Напиши: *"Давай быстро настроим проект — задам несколько вопросов."* Затем открой [docs/onboarding.md](docs/onboarding.md) и следуй протоколу оттуда.
-- Файл **есть** → онбординг пройден. Читай раздел «О ПРОЕКТЕ» и работай в рамках проекта.
+- Файл **есть** → онбординг пройден. Прочитай [docs/project-brief.md](docs/project-brief.md), а если есть `source/INDEX.md` — и его, и работай в рамках проекта.
 
 На команду «стартуем» / «деплой» / любой первый рабочий запрос — если онбординг уже
 пройден, **сразу деплою `bash deploy.sh`** (env.php создастся сам) и прошу
 зарегистрировать local-app в Б24 + вписать `B24_CLIENT_ID`/`SECRET` (how-to-link.md).
-Никаких лишних вопросов.
+Вопросы задавай, только если без ответа нельзя продолжить и вывести его из проекта
+(`docs/project-brief.md`, `source/`, кода) невозможно. Не спрашивай то, что уже известно.
 
-Параметры собираются **лениво по факту запроса**:
+Параметры, которые не вошли в онбординг, собираются **лениво по факту запроса**:
 - Юзер просит фичу со `lists.*` / задачами / телефонией → добавляю нужный scope в карточку local-app
 - Юзер просит вкладку в карточке сделки / виджет → раскомментирую плейсмент в `www/api/bind.php` + добавляю scope
 - Юзер просит фоновую обработку → активирую `www/bin/process.php` через панель cron
@@ -99,7 +90,7 @@ ssum: "**Контекст 1го чтения**"
 
 - **Install-flow** уже зашит — двухфазно через `state` + `installFinish` + reload. См. [rule-b24-install-checklist](rules/rule-b24-install-checklist.md)
 - **Доступ к приложению** — уже реализован не только admin-only, а ещё и по отделам (UI-кнопка «Доступ», чекбоксы), из коробки. При клонировании под нового клиента — подставить дефолтный ID отдела в `DEFAULT_ALLOWED_DEPARTMENTS` (`www/api/session.php`) и не забыть scope `department` при регистрации. См. [rule-b24-department-based-access](rules/rule-b24-department-based-access.md)
-- **Деплой** — `bash deploy.sh` (локальный rsync `www/` → `/var/www/b24/<slug>/`, slug = имя папки проекта). После деплоя перезагружать Caddy не нужно — PHP-FPM подхватывает файлы сразу.
+- **Деплой** — `bash deploy.sh` (rsync `www/` → `<DEPLOY_ROOT>/<slug>/`, slug = имя папки проекта; локально или по SSH — зависит от профиля из `.deploy-target`, по умолчанию `prod`). Данные серверов — в `/projects/mydeploy.env` и `deploy.customer.env`, не в коде. Сначала `bash deploy.sh --dry-run`. Подробности — [docs/deploy-targets.md](docs/deploy-targets.md). Код подхватывается сразу; блок веб-сервера для нового slug добавляется вручную (`deploy.sh` напечатает готовый).
 - **REST-вызовы** — через `$b24 = b24(); $b24->call('method', [...])`. Для CRM сущностей предпочитать `crm.item.*` с `entityTypeId`, не legacy `crm.<entity>.*`. См. [rule-crm-item-universal-api](rules/rule-crm-item-universal-api.md)
 - **REST-вызов для N id (foreach)** — НЕ `foreach ($ids as $id) { $b24->call(...) }`, а `$b24->batch([...])` чанками по 50. См. [rule-b24-rest-batch-not-loop](rules/rule-b24-rest-batch-not-loop.md) — на практике разница 24-34с → 2-3с
 - **State** — через `storeRead(FILE)` / `storeWrite(FILE, $data)`. Все state-файлы в `data/`, защищены `<?php exit;?>` префиксом
@@ -126,33 +117,32 @@ ssum: "**Контекст 1го чтения**"
 
 ## Раскладка на сервере — ОДНА папка
 
-Шаблон деплоится **одной папкой** в `/var/www/b24/<slug>/`. Внутри: `index.php`, `env.php`, `api/`, `css/`, `js/` и **`data/` тоже здесь** (store защищён `<?php exit;?>`-префиксом в .php-файлах, веб не достаёт). `deploy.sh` в шаблоне правильный — не переделывать под другую раскладку.
+Шаблон деплоится **одной папкой** в `<DEPLOY_ROOT>/<slug>/` (на наших серверах `/var/www/b24/<slug>/`). Внутри: `index.php`, `env.php`, `api/`, `css/`, `js/` и **`data/` тоже здесь** (store защищён `<?php exit;?>`-префиксом в .php-файлах, веб не достаёт). `deploy.sh` в шаблоне правильный — не переделывать под другую раскладку.
 
 ## Caddy + PHP-FPM — следствия для шаблона
 
-Сервер — **VPS с Caddy + PHP-FPM**. Caddy проксирует каждый проект через `uri strip_prefix` и `php_fastcgi`. Что из этого вытекает и УЖЕ учтено в шаблоне:
+На наших серверах (`prod`, `lab`) — **Caddy + PHP-FPM**. Caddy проксирует каждый проект через `uri strip_prefix` и `php_fastcgi`. У заказчика веб-сервер может быть другим — см. [docs/deploy-targets.md](docs/deploy-targets.md). Что из этого вытекает и УЖЕ учтено в шаблоне:
 
 - **`.htaccess` не используется by design.** Caddy его не читает. Защита state'а — через `<?php exit;?>`-префикс в `.php`-файлах.
 - **Handler URL в карточке B24 local-app заканчивается на `/index.php`**, не на `/`.
 - **`template.html`, не `index.html`** — `file_server` в Caddy по умолчанию отдаёт `index.html` как статику раньше PHP. `template.html` этого не триггерит.
-- **`data/` с правами `0777`** — PHP-FPM работает от `www-data`, а файлы деплоятся от `deploy`. `deploy.sh` выставляет `chmod 0777` на `data/` автоматически. Содержимое защищено `<?php exit;?>`, не правами ФС.
-- **`APP_URL` в `init.php` (1%-кейс, чужой хостинг) определяется неверно** при Caddy-подобном `uri strip_prefix`: `SCRIPT_NAME` приходит без префикса пути. На нашем VPS это не проблема — `deploy.sh` пишет `APP_URL` напрямую, без автоопределения. Актуально только для `how-to-link-ALL.md`.
+- **Права `data/`** — PHP-FPM (`www-data`) пишет в `data/`, а файлы деплоятся другим пользователем. `deploy.sh` выставляет группу веб-сервера и права из профиля (`WEB_GROUP`, `DATA_MODE`: `2770` на `prod`, `0777` на учебном `lab`). Содержимое защищено `<?php exit;?>`, не правами ФС. Дополнительно на `prod` Caddy отдаёт 404 на `*/data/*`, `*.log`, `*.example`, `.git*`, `.env*` (блок `@blocked`).
+- **`APP_URL` в `init.php` (1%-кейс, чужой хостинг) определяется неверно** при Caddy-подобном `uri strip_prefix`: `SCRIPT_NAME` приходит без префикса пути. `deploy.sh` пишет `APP_URL` напрямую из профиля, без автоопределения. Актуально только для `how-to-link-ALL.md`.
 - **REFERER-fence в session-gate двусторонний** — пропускает и B24-портал, и self-APP_URL. iframe-reload после `BX24.installFinish()` приходит с self-REFERER, без этого мигнёт 403 между установкой и финальной страницей.
 
 ---
 
 ## О ПРОЕКТЕ
 
-> *Этот раздел заполняется автоматически после онбординга. До онбординга — не трогать.*
+Данные конкретного проекта (название, описание, клиент, портал, плейсменты, cron,
+прод URL, скоупы) **не хранятся в этом файле** — только в
+[docs/project-brief.md](docs/project-brief.md). Его заполняет онбординг. Этот файл —
+правила, одинаковые для всех проектов на шаблоне; онбординг его не правит.
 
-**Название:** {{PROJECT_NAME}}
-**Описание:** {{PROJECT_DESCRIPTION}}
-**Портал Б24:** {{B24_PORTAL}}
-**Плейсменты:** {{PLACEMENTS}}
-**Cron:** {{CRON}}
-**Прод URL:** {{APP_URL}}
-**Slug / хостинг:** {{SLUG}} на b24.blackboxbegin.space
-**Скоупы Б24:** crm user placement department{{EXTRA_SCOPES}}
+**Входной контекст** — папка `source/`: материалы заказчика и проекта (макеты,
+спецификации, документация по данным портала, пожелания). Если есть
+`source/INDEX.md` — прочитай его **до** работы над фронтом и бэком и открывай
+нужные файлы из списка. Новый материал в `source/` → добавь строку в `INDEX.md`.
 
 ## ДОКУМЕНТАЦИЯ — ПРОВЕРЯЙ КОГДА ЧТО-ТО НЕ РАБОТАЕТ
 
@@ -162,13 +152,14 @@ ssum: "**Контекст 1го чтения**"
 1. **`/rules`** — сначала `grep` по [rules/INDEX.md](rules/INDEX.md). Возможно,
    эта грабля уже найдена и описана.
 2. **Локальный клон офиц. репозитория** `bitrix-tools/b24-rest-docs`
-   (Documentation as Code, ~3490 файлов), уже склонирован на VPS:
+   (Documentation as Code, ~3490 файлов). Путь `<B24_DOCS_CLONE>` — переменная в
+   `/projects/mydeploy.env` (на основной машине `/home/deploy/refs/b24-rest-docs`):
    ```bash
-   grep -rn "<термин>" /home/deploy/refs/b24-rest-docs --include="*.md"
+   grep -rn "<термин>" <B24_DOCS_CLONE> --include="*.md"
    ```
    - Папки нет на машине → склонировать:
-     `git clone --depth 1 https://github.com/bitrix-tools/b24-rest-docs.git /home/deploy/refs/b24-rest-docs`
-   - Подозрение, что данные устарели → `cd /home/deploy/refs/b24-rest-docs && git pull`
+     `git clone --depth 1 https://github.com/bitrix-tools/b24-rest-docs.git <B24_DOCS_CLONE>`
+   - Подозрение, что данные устарели → `cd <B24_DOCS_CLONE> && git pull`
 3. **MCP `bitrix24-docs`** — поиск прямо из редактора, если в клоне не нашлось.
 4. **Online-ссылки** — последний шаг, только если 1–3 не дали ответа:
 
@@ -184,15 +175,19 @@ ssum: "**Контекст 1го чтения**"
 
 ## ИНФРАСТРУКТУРА СЕРВЕРА
 
-VPS с Caddy + PHP-FPM. Все B24-приложения живут на `b24.blackboxbegin.space`.
+Данные серверов (домен, пути, пользователь деплоя, права) **в этом файле не хранятся**.
+Они в профилях деплоя: `prod` (по умолчанию) и `lab` — `/projects/mydeploy.env`,
+`customer` — `deploy.customer.env` в корне проекта. Механизм целиком — в
+[docs/deploy-targets.md](docs/deploy-targets.md): читай его, когда речь о деплое,
+сервере, `how-to-link.md` или заказчике со своим сервером.
 
 ### Структура на сервере
 
 ```
-/var/www/b24/
+<DEPLOY_ROOT>/
   <slug>/          ← деплой одной папкой
     index.php
-    env.php        ← не в git, создаётся deploy.sh автоматически при первом деплое
+    env.php        ← не в git, создаётся deploy.sh при первом деплое
     api/
     css/
     js/
@@ -200,54 +195,56 @@ VPS с Caddy + PHP-FPM. Все B24-приложения живут на `b24.bla
     data/          ← файловый store, не в git
 ```
 
-### Деплой нового проекта
+### Деплой
 
 ```bash
-bash deploy.sh     # rsync www/ → /var/www/b24/<slug>/
+bash deploy.sh --dry-run    # что изменится; ничего не меняет
+bash deploy.sh              # профиль из .deploy-target (нет файла — prod)
+bash deploy.sh --target lab # разово другой профиль
 ```
 
-`deploy.sh` автоматически: генерирует `env.php` из `env.example` при первом деплое (если его ещё нет на сервере) с подставленными `APP_URL`/`APP_PATH`/`DATA_ROOT`; не трогает `env.php` при последующих деплоях; исключает `data/`, `init.php`; выставляет `chmod 0777` на `data/`.
+`deploy.sh` автоматически: rsync `www/` на сервер; при первом деплое генерирует
+`env.php` из `env.example` с `APP_URL`/`APP_PATH`/`DATA_ROOT` из профиля и slug;
+не трогает `env.php` при последующих деплоях; исключает `data/`, `init.php`;
+выставляет группу и права `data/`; проверяет, есть ли блок для slug в конфиге Caddy.
+Конфиг веб-сервера **не правит** — печатает готовый блок, вставляет человек.
 
-### Caddyfile — паттерн для нового проекта
+### Блок Caddy — паттерн для нового проекта
 
-В `/etc/caddy/Caddyfile` добавить в блок `b24.blackboxbegin.space`:
+Вставляется вручную в блок домена на сервере (значения — из профиля; `deploy.sh`
+печатает уже подставленный вариант):
 
 ```
 handle /<slug>* {
     uri strip_prefix /<slug>
-    root * /var/www/b24/<slug>
-    php_fastcgi unix//run/php/php8.3-fpm.sock
+    root * <DEPLOY_ROOT>/<slug>
+    php_fastcgi unix/<PHP_FPM_SOCK>
     file_server
 }
 ```
 
-После правки перезагрузить (без sudo):
-```bash
-/usr/bin/caddy reload --config /etc/caddy/Caddyfile
-```
+Затем перезагрузка Caddy командой владельца сервера (`<CADDY_RELOAD_CMD>` из профиля).
+Один раз на домен рекомендуется блок `@blocked` (закрывает `data/`, логи, `.git`, `.env`) —
+`deploy.sh` напомнит, если его нет.
 
-### Первый запуск: env.php (99% случаев — известны домен/путь деплоя)
+### Первый запуск: env.php
 
-`deploy.sh` сам создаёт `env.php` при первом деплое slug'а: `APP_URL`,
-`APP_PATH`, `DATA_ROOT` детерминированы конвентом (домен фиксирован
-`b24.blackboxbegin.space`, путь = `/var/www/b24/<slug>`) — автоопределять
-их не нужно.
+1. `bash deploy.sh --dry-run`, затем `bash deploy.sh` — `env.php` создаётся с верным `APP_URL`.
+2. Вставить блок Caddy (см. выше) и перезагрузить.
+3. Зарегистрировать local-app в Б24 по [how-to-link.md](how-to-link.md) и вписать
+   `B24_CLIENT_ID` и `B24_CLIENT_SECRET` в `<DEPLOY_ROOT>/<slug>/env.php` **на сервере**.
 
-1. `bash deploy.sh` — env.php уже создан с верным `APP_URL`
-2. Вписать `B24_CLIENT_ID` и `B24_CLIENT_SECRET` из карточки local-app в Б24
-   в `/var/www/b24/<slug>/env.php`
-
-**1% случаев — хостинг заказчика, где путь/домен заранее не известны**
-(shared-хостинг, FTP-заливка, чужой веб-сервер): `deploy.sh` не подходит.
-Смотри [how-to-link-ALL.md](how-to-link-ALL.md) — там процедура через
-`www/init.php`, который сам определяет host-пути по фактическому запросу.
+**Хостинг заказчика без SSH** (shared-хостинг, FTP-заливка): `deploy.sh` не подходит.
+Смотри [how-to-link-ALL.md](how-to-link-ALL.md) — процедура через `www/init.php`,
+который сам определяет host-пути по фактическому запросу.
 
 ### Регистрация приложения в Битрикс24
 
-Полная пошаговая инструкция: [how-to-link.md](how-to-link.md)
+Полная пошаговая инструкция — [how-to-link.md](how-to-link.md) (агент подставляет в
+неё значения проекта и профиля).
 
 - Тип: **Серверное** (не Статичное)
-- **Путь обработчика:** `https://b24.blackboxbegin.space/<slug>/index.php`
+- **Путь обработчика:** `<APP_URL>/index.php` (`<APP_URL>` = `PUBLIC_BASE_URL` профиля + `/<slug>`)
 - **Путь установки:** тот же URL (с `/index.php` на конце — обязательно)
 - Права: `crm`, `user`, `placement`, `department` — минимум для шаблона (`department` — доступ по отделам из коробки, см. [rule-b24-department-based-access](rules/rule-b24-department-based-access.md))
 - Прямой deep-link на форму создания с предзаполненными правами Б24 не отдаёт (нет такого query-параметра) — открывать форму вручную (портал → Приложения → Разработчикам → Готовые сценарии → Другое → Локальное приложение) или по официальной инструкции [Разработчикам: как создать вебхуки и приложения для Битрикс24](https://helpdesk.bitrix24.ru/open/20886106/#2)

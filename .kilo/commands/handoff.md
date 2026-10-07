@@ -13,7 +13,7 @@ agent: plan
    При расхождении — обнови.
 2. **Заполни блок «Снимок передачи»** в конце `docs/handoff.md`: дата (сегодня), суть
    проекта в одном предложении, что работает, что в процессе или недоделано, прод URL и
-   slug (b24.blackboxbegin.space), главные подводные камни (B24 OAuth, install-flow,
+   slug, профиль деплоя (`.deploy-target`), главные подводные камни (B24 OAuth, install-flow,
    Caddy `uri strip_prefix`), первый шаг для нового исполнителя.
 3. **Убедись, что всё закоммичено:**
    `bash scripts/snapshot.sh "handoff: снимок передачи на $(date +%Y-%m-%d)"`,

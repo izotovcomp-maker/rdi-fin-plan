@@ -1,12 +1,5 @@
 ---
-obj:
-  - IT
-tags:
-  - AI
-  - template
-prjfolder: tmpl-b24-php
-prjurl: /docs/
-ssum: Регистрация конкретных решений
+description: Регистрация конкретных решений
 ---
 
 
