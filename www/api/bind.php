@@ -6,7 +6,7 @@
 // 1. После установки приложения, когда нужно вручную пересобрать плейсменты
 //    (например, поменялось название или добавили новый placement).
 // 2. В двухфазном install-flow — фаза 2 (после reload) делает то же самое
-//    автоматически. См. KB: rules/b24-local-app-two-phase-install.md.
+//    автоматически. См. KB: /projects/docs/rules-b24/b24-local-app-two-phase-install.md.
 declare(strict_types=1);
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
@@ -22,7 +22,7 @@ requireSession();
 // см. https://apidocs.bitrix24.ru/api-reference/widgets/.
 //
 // На cloud-Б24 LEFT_MENU обычно биндится автоматически — пункт добавляется
-// без `placement.bind LEFT_MENU`. См. KB: rules/local-app-left-menu-auto-bind.md.
+// без `placement.bind LEFT_MENU`. См. KB: /projects/docs/rules-b24/local-app-left-menu-auto-bind.md.
 // На коробке — `placement.bind LEFT_MENU` нужен явно.
 $appUrl = rtrim(APP_URL, '/') . '/';
 $placements = [
