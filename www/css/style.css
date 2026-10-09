@@ -233,3 +233,4 @@ textarea.notes-pick { width: 100%; min-width: 180px; font: inherit; font-size: 1
 tr.edited td { background: #fdf6e8; }
 .obj-progress { display: inline-flex; align-items: center; font-size: 13px; font-weight: 600; color: var(--warn); }
 input.date-pick { width: 92px; }
+.objf.active { background: var(--accent); border-color: var(--accent); color: #fff; }

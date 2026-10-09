@@ -502,6 +502,29 @@
   // Данные объекта — отдельный запрос api/plan-object.php без фильтра периода
   // (запрос 2026-10-09): по выбранному объекту видны ВСЕ его платежи, период
   // с других вкладок здесь не действует.
+  // Список объектов: сортировка по коду, переключатель «В реализации» /
+  // «Завершено» (терминальные стадии success/fail) / «Все» — по умолчанию
+  // «В реализации». Объекты воронки «Преддоговорная» приходят уже исключёнными с бэка.
+  let objStageFilter = 'active';
+  const sortDeals = list => list.slice().sort((a, b) =>
+    String(a.code || '').localeCompare(String(b.code || ''), 'ru', { numeric: true }) || (a.id - b.id));
+  const isDoneDeal = d => {
+    const s = stageMeta(d, P.stages);
+    return s.semantics === 'S' || s.semantics === 'F';   // терминальные стадии
+  };
+  const objSwitch = () => '<div class="obj-actions">' +
+    [['active', 'В реализации'], ['done', 'Завершено'], ['all', 'Все']].map(([v, l]) =>
+      '<button type="button" data-objf="' + v + '" class="btn-secondary objf' + (objStageFilter === v ? ' active' : '') + '">' + l + '</button>').join('') +
+    '</div>';
+  const objDeals = () => {
+    const list = sortDeals(P.deals).filter(d =>
+      objStageFilter === 'all' ? true : (objStageFilter === 'done' ? isDoneDeal(d) : !isDoneDeal(d)));
+    const sel = dealById(objSel);
+    // выбранный объект всегда остаётся в списке, даже если не подходит под фильтр
+    if (sel && !list.some(d => d.id === objSel)) list.unshift(sel);
+    return list;
+  };
+
   function loadObject(dealId) {
     const seq = ++objSeq;
     OBJ = { loading: true, err: '', data: null };
@@ -530,8 +553,8 @@
         '</div>'
       : (objSending ? '<div class="obj-actions">' + progress + '</div>' : '');
     let h = '<div class="filters" style="margin:0 0 6px"><label>Объект <select id="objPick">' +
-      P.deals.map(d => '<option value="' + d.id + '"' + (d.id === objSel ? ' selected' : '') + '>' + esc(dealLabel(d)) + '</option>').join('') +
-      '</select></label></div>' + objActions;
+      objDeals().map(d => '<option value="' + d.id + '"' + (d.id === objSel ? ' selected' : '') + '>' + esc(dealLabel(d)) + '</option>').join('') +
+      '</select></label>' + objSwitch() + '</div>' + objActions;
     if (!OBJ || OBJ.loading) { $('objectView').innerHTML = h + '<p class="muted" style="padding:10px 0">Загрузка платежей объекта…</p>'; bindObjectPick(); return; }
     if (OBJ && OBJ.err) {
       $('objectView').innerHTML = h +
@@ -611,6 +634,7 @@
   const bindObjectPick = () => {
     const pick = $('objPick');
     if (pick) pick.onchange = e => { objSel = +e.target.value; objEdits = {}; objSending = false; loadObject(objSel); };
+    $('objectView').querySelectorAll('[data-objf]').forEach(b => b.onclick = () => { objStageFilter = b.dataset.objf; renderObject(); });
   };
   // платежи вкладки «По объекту» живут в OBJ (не в P)
   const findPay = key => (OBJ && OBJ.data && OBJ.data.payments ? OBJ.data.payments.find(p => p.kind + p.id === key) : null);
@@ -661,7 +685,7 @@
   // объекты и периоды в селекты (периоды: ±2 года от текущего — «жёсткий выбор» другого периода)
   function buildStaticSelects() {
     $('fObj').innerHTML = '<option value="">Все объекты</option>' +
-      P.deals.map(d => '<option value="' + d.id + '"' + (String(d.id) === F.obj ? ' selected' : '') + '>' + esc(dealLabel(d)) + '</option>').join('');
+      sortDeals(P.deals).map(d => '<option value="' + d.id + '"' + (String(d.id) === F.obj ? ' selected' : '') + '>' + esc(dealLabel(d)) + '</option>').join('');
     const now = new Date();
     const yFrom = now.getFullYear() - 2, yTo = now.getFullYear() + 2;
     let opts = '';

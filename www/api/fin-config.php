@@ -295,3 +295,29 @@ function finItemsByParent($b24, int $entityTypeId, array $filter, callable $keep
 function finItemId(array $item): int {
     return (int)(finItemField($item, 'ID', 'id') ?? 0);
 }
+
+/**
+ * id воронок (категорий) смарта Сделки, исключённых из финплана: по ним нет
+ * движений денег ни в плане, ни в факте, а в списках объектов они мешают.
+ * Имя воронки ищем по подстроке («Преддоговор») — числовые id категорий
+ * на портале не константа. Если воронки получить не удалось, ничего не
+ * исключаем (безопасный fallback).
+ */
+function finSkipDealCategoryIds($b24): array {
+    $needle = 'преддоговор';
+    $out = [];
+    $start = 0;
+    do {
+        $res = $b24->call('crm.category.list', ['entityTypeId' => FIN_DEAL, 'start' => $start]);
+        if (!empty($res['error'])) return $out;
+        $cats = (array)($res['result']['categories'] ?? $res['result'] ?? []);
+        foreach ($cats as $c) {
+            if (!is_array($c) || !isset($c['id'], $c['name'])) continue;
+            $name = function_exists('mb_strtolower') ? mb_strtolower((string)$c['name'], 'UTF-8') : strtolower((string)$c['name']);
+            if (strpos($name, $needle) !== false) $out[] = (int)$c['id'];
+        }
+        $total = (int)($res['total'] ?? count($cats));
+        $start += 50;
+    } while (count($cats) > 0 && $start < $total && $start < 500);
+    return $out;
+}

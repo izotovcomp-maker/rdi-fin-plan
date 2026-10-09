@@ -38,12 +38,21 @@ $paysc = finItemsAll($b24, FIN_PAYSC, finSelectAll(), $scFilter);
 $deals   = finItemsAll($b24, FIN_DEAL,   finSelectAll());
 $scontrs = finItemsAll($b24, FIN_SCONTR, finSelectAll());
 
-// ── стадии/цвета по фактическим stageId платежей ──────────────────────────
+// ── воронки без движений денег (напр. «Преддоговорная») в финплан не попадают ──
+$skipCats = finSkipDealCategoryIds($b24);
+if ($skipCats) {
+    $deals = array_values(array_filter($deals, function (array $d) use ($skipCats) {
+        return !in_array((int)(finItemField($d, 'CATEGORY_ID', 'categoryId') ?? 0), $skipCats, true);
+    }));
+}
+
+// ── стадии/цвета: платежи + воронки самих сделок (фронт различает «В реализации»/«Завершено») ──
 // ВАЖНО: стандартные поля в Y-режиме приходят капсом (D-008) — собираем через
 // finItemField (STAGE_ID|stageId), иначе список стадий пуст и фронт показывает
 // сырые statusId без имён/цветов портала.
 $stageIds = [];
 foreach (array_merge($pays, $paysc) as $p) $stageIds[] = (string)(finItemField($p, 'STAGE_ID', 'stageId') ?? '');
+foreach ($deals as $d) $stageIds[] = (string)(finItemField($d, 'STAGE_ID', 'stageId') ?? '');
 $stages = finStages($b24, $stageIds);
 
 // ── нормализация платежей ─────────────────────────────────────────────────
