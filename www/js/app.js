@@ -466,7 +466,7 @@
     let h = '<div class="filters" style="margin:0 0 6px"><label>Объект <select id="objPick">' +
       P.deals.map(d => '<option value="' + d.id + '"' + (d.id === objSel ? ' selected' : '') + '>' + esc(dealLabel(d)) + '</option>').join('') +
       '</select></label></div>';
-    if (OBJ && OBJ.loading) { $('objectView').innerHTML = h + '<p class="muted" style="padding:10px 0">Загрузка платежей объекта…</p>'; bindObjectPick(); return; }
+    if (!OBJ || OBJ.loading) { $('objectView').innerHTML = h + '<p class="muted" style="padding:10px 0">Загрузка платежей объекта…</p>'; bindObjectPick(); return; }
     if (OBJ && OBJ.err) {
       $('objectView').innerHTML = h +
         '<div class="error-banner" style="margin:6px 0"><span>' + esc(OBJ.err) + '</span>' +
