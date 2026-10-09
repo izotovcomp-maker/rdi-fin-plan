@@ -499,12 +499,11 @@
   const mini = (l, v, c) => '<div class="mini"><div class="lbl">' + l + '</div><div class="val ' + (c || '') + '">' + v + '</div></div>';
 
   // ── По объекту ───────────────────────────────────────────────────────
-  // Данные объекта — отдельный запрос api/plan-object.php без фильтра периода
-  // (запрос 2026-10-09): по выбранному объекту видны ВСЕ его платежи, период
-  // с других вкладок здесь не действует.
-  // Список объектов: сортировка по коду, переключатель «В реализации» /
-  // «Завершено» (терминальные стадии success/fail) / «Все» — по умолчанию
-  // «В реализации». Объекты воронки «Преддоговорная» приходят уже исключёнными с бэка.
+  // Данные объекта НЕ подгружаются автоматически (запрос 2026-10-09): вкладка
+  // открывается с пустым списком объектов, данные грузятся только после выбора
+  // объекта. Переключатель «В реализации» / «Завершено» / «Все» (по умолчанию
+  // «В реализации») целиком перестраивает список и сбрасывает выбор.
+  // Объекты воронки «Преддоговорная» приходят уже исключёнными с бэка.
   let objStageFilter = 'active';
   const sortDeals = list => list.slice().sort((a, b) =>
     String(a.code || '').localeCompare(String(b.code || ''), 'ru', { numeric: true }) || (a.id - b.id));
@@ -516,14 +515,8 @@
     [['active', 'В реализации'], ['done', 'Завершено'], ['all', 'Все']].map(([v, l]) =>
       '<button type="button" data-objf="' + v + '" class="btn-secondary objf' + (objStageFilter === v ? ' active' : '') + '">' + l + '</button>').join('') +
     '</div>';
-  const objDeals = () => {
-    const list = sortDeals(P.deals).filter(d =>
-      objStageFilter === 'all' ? true : (objStageFilter === 'done' ? isDoneDeal(d) : !isDoneDeal(d)));
-    const sel = dealById(objSel);
-    // выбранный объект всегда остаётся в списке, даже если не подходит под фильтр
-    if (sel && !list.some(d => d.id === objSel)) list.unshift(sel);
-    return list;
-  };
+  const objDeals = () => sortDeals(P.deals).filter(d =>
+    objStageFilter === 'all' ? true : (objStageFilter === 'done' ? isDoneDeal(d) : !isDoneDeal(d)));
 
   function loadObject(dealId) {
     const seq = ++objSeq;
@@ -532,6 +525,7 @@
     window.api('GET', 'api/plan-object.php?deal=' + encodeURIComponent(dealId)).then(res => {
       if (seq !== objSeq) return;
       OBJ = { loading: false, err: '', data: res };
+      objNeedReload = false;
       renderObject();
     }).catch(err => {
       if (seq !== objSeq) return;
@@ -541,9 +535,6 @@
   }
 
   function renderObject() {
-    if (objSel === null) { $('objectView').innerHTML = '<p class="muted">Нет объектов на портале.</p>'; return; }
-    const deal = dealById(objSel);
-    // счётчик — по числу изменённых ПОЛЕЙ (у одного платежа их может быть несколько)
     const editCount = Object.keys(objEdits).reduce((s, k) => s + Object.keys(objEdits[k]).length, 0);
     const progress = '<span class="obj-progress">Идет обновление 🔄</span>';
     const objActions = editCount
@@ -553,8 +544,14 @@
         '</div>'
       : (objSending ? '<div class="obj-actions">' + progress + '</div>' : '');
     let h = '<div class="filters" style="margin:0 0 6px"><label>Объект <select id="objPick">' +
+      '<option value="">— выберите объект —</option>' +
       objDeals().map(d => '<option value="' + d.id + '"' + (d.id === objSel ? ' selected' : '') + '>' + esc(dealLabel(d)) + '</option>').join('') +
       '</select></label>' + objSwitch() + '</div>' + objActions;
+    if (objSel === null) {   // объект не выбран — данных нет, ничего не грузим
+      $('objectView').innerHTML = h + '<p class="muted" style="padding:10px 0">Выберите объект из списка.</p>';
+      bindObjectPick();
+      return;
+    }
     if (!OBJ || OBJ.loading) { $('objectView').innerHTML = h + '<p class="muted" style="padding:10px 0">Загрузка платежей объекта…</p>'; bindObjectPick(); return; }
     if (OBJ && OBJ.err) {
       $('objectView').innerHTML = h +
@@ -565,6 +562,7 @@
       return;
     }
     const D = OBJ.data;                       // {deal, contracts, payments, stages}
+    const deal = dealById(objSel);
     const objStages = D.stages || {};
     const contractByIdO = id => D.contracts.find(c => c.id === id) || null;
     const inc = D.payments.filter(p => p.dealId === objSel && p.amount > 0).sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1);
@@ -633,8 +631,25 @@
   }
   const bindObjectPick = () => {
     const pick = $('objPick');
-    if (pick) pick.onchange = e => { objSel = +e.target.value; objEdits = {}; objSending = false; loadObject(objSel); };
-    $('objectView').querySelectorAll('[data-objf]').forEach(b => b.onclick = () => { objStageFilter = b.dataset.objf; renderObject(); });
+    if (pick) pick.onchange = e => {
+      objEdits = {};
+      objSending = false;
+      OBJ = null;
+      const v = e.target.value;
+      if (!v) { objSel = null; renderObject(); return; }   // пустое значение — данных нет
+      objSel = +v;
+      loadObject(objSel);
+    };
+    // переключатель статусов целиком перестраивает список и сбрасывает выбор
+    $('objectView').querySelectorAll('[data-objf]').forEach(b => b.onclick = () => {
+      if (objStageFilter === b.dataset.objf) return;
+      objStageFilter = b.dataset.objf;
+      objSel = null;
+      objEdits = {};
+      objSending = false;
+      OBJ = null;
+      renderObject();
+    });
   };
   // платежи вкладки «По объекту» живут в OBJ (не в P)
   const findPay = key => (OBJ && OBJ.data && OBJ.data.payments ? OBJ.data.payments.find(p => p.kind + p.id === key) : null);
@@ -667,14 +682,11 @@
       if (seq !== loadSeq) return;
       P = res;
       F.from = res.from; F.to = res.to || '';
-      if (objSel === null || !dealById(objSel)) {
-        const withActivity = P.deals.find(d => P.payments.some(p => p.dealId === d.id)) || P.deals[0];
-        objSel = withActivity ? withActivity.id : null;
-      }
       buildStaticSelects();
       renderAll();
-      // «По объекту» не зависит от периода — грузим только первый раз и после правок платежей
-      if (objNeedReload && objSel !== null) { objNeedReload = false; loadObject(objSel); }
+      // «По объекту» грузится только после выбора объекта пользователем;
+      // перезагружаем его здесь лишь после правок платежей (objNeedReload)
+      if (objNeedReload && objSel !== null) loadObject(objSel);
     }).catch(err => {
       if (seq !== loadSeq) return;
       $('kpis').innerHTML = '';
