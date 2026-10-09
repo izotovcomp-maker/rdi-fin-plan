@@ -205,7 +205,24 @@ svg text { font-family: var(--font-mono); font-size: 11px; fill: var(--muted); }
 .user-check-id { color: var(--muted); font-size: 0.8rem; min-width: 38px; text-align: right; }
 .access-count { margin-top: 6px; font-size: 0.85rem; }
 
+/* ── финплан: дерево объекта, итоговые строки ─────────────────── */
+.tree-l1 { border-left: 4px solid var(--inc); padding-left: 14px; margin-top: 14px; }
+.tree-l2 { border-left: 4px solid var(--exp); padding-left: 14px; margin: 14px 0 0 24px; }
+.node-title { font-family: var(--font-mono); font-weight: 600; color: var(--ink); }
+tr.saldo td { font-weight: 700; }
+tr.cum td { font-weight: 700; border-bottom: 2px solid var(--ink); }
+.cell-neg-cum { background: var(--exp-bg); color: var(--exp); }   /* минус нарастающего остатка */
+
+/* ── финплан: правка платежа «По объекту» ─────────────────────── */
+select.stage-pick { font-size: 12px; padding: 3px 6px; border-radius: 12px; font-weight: 600; border-width: 1px; }
+textarea.notes-pick { width: 100%; min-width: 180px; font: inherit; font-size: 12px; padding: 4px 6px; resize: vertical; white-space: pre-wrap; }
+.cell-date.pending input { opacity: .6; }
+.recalc-hint { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--warn); margin-top: 3px; }
+.recalc-hint .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
+
 @media (max-width: 640px) {
   #app { padding: 16px 12px 40px; }
   .indent { margin-left: 14px; }
+  .tree-l2 { margin-left: 8px; }
 }

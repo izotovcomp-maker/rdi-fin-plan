@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Приложение</title>
+  <title>Фин план</title>
   <link rel="stylesheet" href="css/style.css">
   <!-- B24 JS SDK подключается в iframe-режиме автоматически. Подключаем сами
        только для подстраховки + чтобы локальное открытие через init.php тоже
@@ -14,31 +14,143 @@
   <div id="app">
     <header class="header-row">
       <div>
-        <h1>Приложение</h1>
-        <p class="muted">Шаблон single-tenant B24 local-app. Подмени UI на свой.</p>
+        <h1>Финансовый план · движение денежных средств</h1>
+        <p class="muted">Сводка по всем объектам: что придёт, что уйдёт и сколько будет на счёте в каждом месяце</p>
       </div>
       <button type="button" id="access-btn" class="btn-secondary" hidden>Доступ</button>
     </header>
 
-    <main>
-      <section class="card">
-        <h2>Состояние</h2>
-        <ul id="state">
-          <li>BX24: <span id="bx24-state">проверяю…</span></li>
-          <li>Сессия: <span id="session-state">проверяю…</span></li>
-        </ul>
-      </section>
+    <div id="plan-error" class="error-banner" hidden>
+      <span id="plan-error-msg"></span>
+      <button type="button" id="plan-retry" class="btn-secondary">Повторить</button>
+    </div>
 
-      <section class="card">
-        <h2>Что дальше</h2>
-        <ol>
-          <li>Переименуй title и шапку под проект.</li>
-          <li>Добавь свои UI-блоки в этот файл.</li>
-          <li>Добавь свои endpoint'ы в <code>api/</code>.</li>
-          <li>Если нужен placement (вкладка в карточке / пункт в меню) — заполни <code>api/bind.php</code> и открой <code>/api/bind.php</code> из админ-сессии.</li>
-        </ol>
-      </section>
-    </main>
+    <div class="kpis" id="kpis"></div>
+
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="svod">Свод по месяцам</button>
+      <button class="tab" data-tab="reestr">Реестр движений</button>
+      <button class="tab" data-tab="object">По объекту</button>
+      <button class="tab" data-tab="explain">Как это считается</button>
+    </nav>
+
+    <div class="filters" id="filters">
+      <label>Объект <select id="fObj"></select></label>
+      <label>Период с <select id="fFrom"></select></label>
+      <label>по <select id="fTo"></select></label>
+      <label>Что показывать
+        <select id="fMode">
+          <option value="all">Факт + план</option>
+          <option value="fact">Только факт («Счёт оплачен»)</option>
+          <option value="plan">Только план (ещё не оплачено)</option>
+        </select>
+      </label>
+      <label id="fUnitWrap">Единицы
+        <select id="fUnit">
+          <option value="1000">тыс. ₽</option>
+          <option value="1">₽</option>
+          <option value="1000000">млн ₽</option>
+        </select>
+      </label>
+      <label>&nbsp;
+        <button type="button" id="refreshBtn" class="btn-secondary" style="padding:5px 10px;font-size:13px">Обновить</button>
+      </label>
+    </div>
+
+    <section id="tab-svod" class="tabpane">
+      <div class="card">
+        <h2>Динамика по месяцам</h2>
+        <div id="chart"></div>
+        <div class="legend">
+          <span><i style="background:var(--inc)"></i>Доходы, факт</span>
+          <span><i style="background:var(--inc);opacity:.4"></i>Доходы, план</span>
+          <span><i style="background:var(--exp)"></i>Расходы, факт</span>
+          <span><i style="background:var(--exp);opacity:.4"></i>Расходы, план</span>
+          <span><i style="background:var(--accent);height:3px;vertical-align:3px"></i>Остаток нарастающим итогом</span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Таблица: объекты × месяцы</h2>
+        <div class="tbl-wrap" id="matrix"></div>
+        <p class="muted" style="font-size:12px;margin:8px 0 0">Красным выделены месяцы, в которых нарастающий остаток уходит в минус — то есть денег не хватает.</p>
+      </div>
+    </section>
+
+    <section id="tab-reestr" class="tabpane" hidden>
+      <div class="card">
+        <h2>Реестр всех платежей</h2>
+        <div class="filters" style="margin-top:0;margin-bottom:10px">
+          <label>Тип
+            <select id="fKind"><option value="">Доходы и расходы</option><option value="inc">Только доходы</option><option value="exp">Только расходы</option></select>
+          </label>
+          <label>Поиск по назначению <input type="text" id="fText" placeholder="например: аванс"></label>
+        </div>
+        <div class="tbl-wrap" id="reestr"></div>
+        <p class="muted" style="font-size:12px;margin:8px 0 0">Это ровно те колонки, из которых строится план: Период · Дата · Сумма · Объект · Назначение платежа. Заголовки колонок кликабельны — сортировка. Сумма внизу — это и есть сальдо: доходы (+) и расходы (−) просто складываются.</p>
+      </div>
+    </section>
+
+    <section id="tab-object" class="tabpane" hidden>
+      <div class="card" id="objectView"></div>
+    </section>
+
+    <section id="tab-explain" class="tabpane" hidden>
+      <div class="card">
+        <h2>Откуда берутся цифры</h2>
+        <p style="margin-top:0">Всё строится на одном принципе: <b>каждый будущий или свершившийся платёж — это отдельная запись с датой и суммой</b>. Доходные платежи — со знаком «+», расходные — со знаком «−». Приложение собирает все такие записи и группирует по месяцам и объектам.</p>
+        <div class="two">
+          <div>
+            <div class="flow">
+              <div class="box inc"><div class="t">Сделка (доходный договор)</div><div class="d">Объект: код + название.</div></div>
+              <div class="arrow">▼ к сделке привязываются</div>
+              <div class="indent">
+                <div class="box inc"><div class="t">Оплаты — ДОХОД (+)</div><div class="d">Дата план · Сумма · Назначение платежа.</div></div>
+              </div>
+              <div class="arrow">▼ к той же сделке привязывается</div>
+              <div class="indent">
+                <div class="box exp"><div class="t">Подряд — ПЛАН расходов (−)</div><div class="d">Подрядчик и <b>сумма подрядного договора</b>. Это потолок расходов по подряду.</div></div>
+                <div class="arrow">▼ к подряду привязываются</div>
+                <div class="indent">
+                  <div class="box exp"><div class="t">Расход (П) — платежи подрядчику (−)</div><div class="d">Дата план · Сумма · Назначение платежа.</div></div>
+                </div>
+              </div>
+              <div class="arrow">▼ отдельно — расходы без доходного договора</div>
+              <div class="box exp"><div class="t">Нереализационная сделка (общехозяйственные)</div><div class="d">Та же схема, но без Оплат: к сделке привязан Подряд-статья затрат, к нему — Расход(П): аренда, ФОТ, налоги.</div></div>
+            </div>
+          </div>
+          <div>
+            <h3 style="margin-top:0">Формула</h3>
+            <div class="formula">Сальдо = сумма всех платежей<br>(доходы «+», расходы «−»)</div>
+            <ul class="tight">
+              <li>Никакого вычитания и разных формул: доходы положительные, расходы отрицательные, итог — просто сумма.</li>
+              <li>Отрицательное число в любой выгрузке сразу читается как расход.</li>
+              <li>Сальдо «нарастающим итогом» показывает, сколько денег будет на конец каждого месяца.</li>
+            </ul>
+            <h3>План становится фактом</h3>
+            <ul class="tight">
+              <li>Всё, что ещё не оплачено — это «План», независимо от промежуточной стадии.</li>
+              <li>Когда платёж переведён в стадию <b>«Счёт оплачен»</b> (у расходов — «Оплачено»), бизнес-процесс портала сам переписывает «Дата план» на сегодняшнюю дату — отдельного поля «дата факта» не требуется.</li>
+              <li>Для подряда автоматически пересчитывается <b>остаток к оплате</b>: сумма договора минус оплаченное.</li>
+            </ul>
+            <h3>Какие поля используются</h3>
+            <div class="tbl-wrap"><table>
+              <thead><tr><th>Колонка в плане</th><th>Откуда берётся</th></tr></thead>
+              <tbody>
+                <tr><td>Период (ГГММ)</td><td>Месяц «Дата план», считается автоматически</td></tr>
+                <tr><td>Дата</td><td>«Дата план» платежа (после оплаты — дата факта)</td></tr>
+                <tr><td>Сумма</td><td>«Сумма к оплате», с НДС (доход «+», расход «−»)</td></tr>
+                <tr><td>Объект</td><td>Код объекта сделки</td></tr>
+                <tr><td>Назначение платежа</td><td>«Предмет оплаты»</td></tr>
+              </tbody>
+            </table></div>
+            <h3>Проверка «не распланировано»</h3>
+            <ul class="tight">
+              <li>Сумма подряда должна разложиться платежами Расход(П) в ноль; остаток — сигнал, что декомпозиция не завершена, а не «резерв на будущее».</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 
   <div id="access-modal-overlay" class="modal-overlay" hidden>
