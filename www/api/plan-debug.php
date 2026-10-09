@@ -32,6 +32,19 @@ $deals = $call('deals', 'crm.item.list', [
     'entityTypeId' => FIN_DEAL, 'start' => 0, 'useOriginalUfNames' => 'Y',
     'select' => finSelectAll(),
 ]);
+// проба фильтра по стандартному полю (план-object.php так выбирает платежи объекта);
+// D-008: в Y-режиме такие фильтры не проверены — если портал их игнорирует,
+// тут придут элементы с другими родителями
+$firstDealId = 0;
+foreach ((array)($deals['result']['items'] ?? []) as $d) {
+    if (!empty($d['ID'])) { $firstDealId = (int)$d['ID']; break; }
+    if (!empty($d['id'])) { $firstDealId = (int)$d['id']; break; }
+}
+$payByDeal = $firstDealId > 0 ? $call('pay_by_deal', 'crm.item.list', [
+    'entityTypeId' => FIN_PAY, 'start' => 0, 'useOriginalUfNames' => 'Y',
+    'select' => finSelectAll(),
+    'filter' => ['PARENT_ID_1038' => $firstDealId],
+]) : ['note' => 'нет сделок для пробы фильтра'];
 $pay = $call('pay', 'crm.item.list', [
     'entityTypeId' => FIN_PAY, 'start' => 0, 'useOriginalUfNames' => 'Y',
     'select' => finSelectAll(),
@@ -64,6 +77,7 @@ echo json_encode([
     'dateFrom' => $dateFrom,
     'calls' => [
         'deals_1038'           => $deals,
+        'pay_by_deal_1046'     => $payByDeal,
         'pay_1046_with_date'   => $pay,
         'pay_1046_no_filter'   => $payNoDate,
         'paysc_1062_with_date' => $paysc,

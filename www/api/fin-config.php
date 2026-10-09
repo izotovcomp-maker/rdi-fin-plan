@@ -194,3 +194,80 @@ function finStageIsPaid(array $stageList, string $statusId): bool {
     }
     return $statusId === 'SUCCESS';
 }
+
+/** Статусная часть stageId 'DT1046_18:NEW' → 'NEW'; без ':' — как есть. */
+function finStageStatusId(string $stageId): string {
+    $pos = strpos($stageId, ':');
+    return $pos === false ? $stageId : substr($stageId, $pos + 1);
+}
+
+/**
+ * Нормализация сделки (Сделки 1038) — общая для plan.php и plan-object.php.
+ */
+function finNormDeal(array $d): array {
+    return [
+        'id'         => (int)(finItemField($d, 'ID', 'id') ?? 0),
+        'title'      => (string)(finItemField($d, 'TITLE', 'title') ?? ''),
+        'code'       => trim((string)($d[FIN_DEAL_CODE] ?? '')),
+        'sname'      => trim((string)($d[FIN_DEAL_SNAME] ?? '')),
+        'stageId'    => (string)(finItemField($d, 'STAGE_ID', 'stageId') ?? ''),
+        'categoryId' => (int)(finItemField($d, 'CATEGORY_ID', 'categoryId') ?? 0),
+    ];
+}
+
+/** Нормализация подряда (Подряд 1058). */
+function finNormScontr(array $c): array {
+    return [
+        'id'     => (int)(finItemField($c, 'ID', 'id') ?? 0),
+        'dealId' => finParentId(finItemField($c, 'PARENT_ID_1038', 'parentId1038')),
+        'title'  => (string)(finItemField($c, 'TITLE', 'title') ?? ''),
+        'sname'  => trim((string)($c[FIN_SCONTR_SNAME] ?? '')),
+        'cost'   => finCostAbs($c[FIN_SCONTR_COST] ?? 0),   // положительное число; фронт показывает «−»
+    ];
+}
+
+/**
+ * Нормализация платежа (Оплаты 1046 / Расход(П) 1062) — общая для plan.php и plan-object.php.
+ * $stages — словарь префикс → список стадий (finStages), $contractId — id подряда для Расход(П).
+ */
+function finNormPayment(array $p, string $kind, array $uf, ?int $contractId, array $stages): array {
+    $rawStage = (string)(finItemField($p, 'STAGE_ID', 'stageId') ?? '');
+    $prefix   = ($pos = strpos($rawStage, ':')) === false ? '' : substr($rawStage, 0, $pos);
+    $list     = $stages[$prefix] ?? [];
+    return [
+        'id'         => (int)(finItemField($p, 'ID', 'id') ?? 0),
+        'kind'       => $kind,                                   // pay (+) | paysc (−)
+        'dealId'     => finParentId(finItemField($p, 'PARENT_ID_1038', 'parentId1038')),
+        'contractId' => $contractId,
+        'title'      => (string)(finItemField($p, 'TITLE', 'title') ?? ''),
+        'amount'     => $kind === 'pay' ? finPayAmount($p[$uf['plan']] ?? 0) : finPayscAmount($p[$uf['plan']] ?? 0),
+        'date'       => finNormDate($p[$uf['date']] ?? null),
+        'subject'    => (string)($p[$uf['subject']] ?? ''),
+        'notes'      => (string)($p[$uf['notes']] ?? ''),
+        'stageId'    => $rawStage,
+        // факт = финальная стадия (SEMANTICS S) ИЛИ «Сумма оплачено» > 0 (D-006);
+        // надёжнее вместе: стадию могли не перевести, а БП сумму уже записал
+        'fact'       => finStageIsPaid($list, finStageStatusId($rawStage)) || finNum($p[$uf['fact']] ?? 0) > 0,
+    ];
+}
+
+/**
+ * Выборка смарта с фильтром по стандартному полю-родителю.
+ * Фильтры по стандартным полям в режиме useOriginalUfNames=Y на портале не
+ * проверялись (D-008) — портал может молча игнорировать ключ фильтра. Поэтому
+ * результат в любом случае перепроверяется локально через $keep; если порталу
+ * не нравится сам фильтр (ошибка) — берём всё и режем локально.
+ */
+function finItemsByParent($b24, int $entityTypeId, array $filter, callable $keep): array {
+    try {
+        $rows = finItemsAll($b24, $entityTypeId, finSelectAll(), $filter);
+    } catch (RuntimeException $e) {
+        $rows = finItemsAll($b24, $entityTypeId, finSelectAll());
+    }
+    return array_values(array_filter($rows, $keep));
+}
+
+/** id элемента смарта из сырого ответа (регистр не гарантирован). */
+function finItemId(array $item): int {
+    return (int)(finItemField($item, 'ID', 'id') ?? 0);
+}

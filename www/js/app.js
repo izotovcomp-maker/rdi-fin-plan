@@ -196,7 +196,10 @@
   const MON = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
   const MINUS = '−';
 
-  let P = null;              // ответ api/plan.php
+  let P = null;              // ответ api/plan.php (периодные вкладки: свод/реестр)
+  let OBJ = null;            // ответ api/plan-object.php для вкладки «По объекту» (все платежи объекта, без периода)
+  let objSeq = 0;            // защита от гонки перезагрузок «По объекту»
+  let objNeedReload = true;  // данные «По объекту» не зависят от периода — перезагружаем только по необходимости
   const F = { obj: '', mode: 'all', unit: 1000, kind: '', text: '', from: '', to: '' };
   let sortKey = 'date', sortDir = 1, activeTab = 'svod', objSel = null;
   let loadSeq = 0;
@@ -224,11 +227,12 @@
   const contractById = id => id ? (P.contracts.find(c => c.id === id) || null) : null;
   const periodOf = p => p.date ? p.date.slice(2, 4) + p.date.slice(5, 7) : null;
 
-  // стадии: stageId 'DT1046_18:NEW' → мета из P.stages['DT1046_18']
+  // стадии: stageId 'DT1046_18:NEW' → мета из словаря стадий
+  // (для реестра — P.stages, для «По объекту» — OBJ.stages)
   const stagePrefix = sid => { const i = sid.indexOf(':'); return i < 0 ? '' : sid.slice(0, i); };
   const stageStatus = sid => { const i = sid.indexOf(':'); return i < 0 ? sid : sid.slice(i + 1); };
-  function stageMeta(p) {
-    const list = (P.stages || {})[stagePrefix(p.stageId)] || [];
+  function stageMeta(p, stages) {
+    const list = (stages || (P && P.stages) || {})[stagePrefix(p.stageId)] || [];
     const st = list.find(s => s.id === stageStatus(p.stageId));
     return st || { id: stageStatus(p.stageId), name: stageStatus(p.stageId), color: '#9aa0a6', semantics: '' };
   }
@@ -398,15 +402,16 @@
     const n = parseInt(hex.slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
     return (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? '#17181a' : '#ffffff';
   };
-  function stageBadge(p) {
-    const s = stageMeta(p);
+  function stageBadge(p, stages) {
+    const s = stageMeta(p, stages);
     return '<span class="stage-badge" style="background:' + s.color + ';color:' + contrastText(s.color) + '">' + esc(s.name) + '</span>';
   }
-  function stageSelect(p) {
-    const list = (P.stages || {})[stagePrefix(p.stageId)] || [];
-    const s = stageMeta(p);
+  function stageSelect(p, stages) {
+    const list = (stages || {})[stagePrefix(p.stageId)] || [];
+    if (!list.length) return stageBadge(p, stages);   // воронка не подгрузилась — хотя бы бейдж с текущей стадией
+    const s = stageMeta(p, stages);
     return '<select class="stage-pick" data-stage-id="' + p.kind + p.id + '" style="background:' + s.color + ';border-color:' + s.color + ';color:' + contrastText(s.color) + '"' + (p._pending ? ' disabled' : '') + '>' +
-      list.map(o => '<option value="' + esc(p.stageId.slice(0, p.stageId.indexOf(':')) + ':' + o.id) + '"' + (o.id === s.id ? ' selected' : '') + '>' + esc(o.name) + '</option>').join('') + '</select>';
+      list.map(o => '<option value="' + esc(stagePrefix(p.stageId) + ':' + o.id) + '"' + (o.id === s.id ? ' selected' : '') + '>' + esc(o.name) + '</option>').join('') + '</select>';
   }
 
   // ── правка платежа ───────────────────────────────────────────────────
@@ -416,12 +421,13 @@
   function savePay(p, patch) {
     p._pending = true;
     renderObject();
+    objNeedReload = true;   // после правки перезагрузим и свод, и данные объекта
     window.api('POST', 'api/plan-update.php', Object.assign({ id: p.id, kind: p.kind }, patch))
       .then(() => { setTimeout(loadPlan, 1500); })
       .catch(err => { p._pending = false; showPlanError(err.message); renderObject(); });
   }
 
-  function payRow(p) {
+  function payRow(p, stages) {
     const pend = !!p._pending;
     return '<tr><td class="cell-date' + (pend ? ' pending' : '') + '">' +
         '<input type="date" class="date-pick" data-date-id="' + p.kind + p.id + '" value="' + (p.date || '') + '"' + (pend ? ' disabled' : '') + '>' +
@@ -430,34 +436,64 @@
       '<td class="num ' + cls(p.amount) + '">' + fmtSigned(p.amount, 1) + '</td>' +
       '<td class="wrap">' + esc(p.subject) + '</td>' +
       '<td class="wrap"><textarea class="notes-pick" data-notes-id="' + p.kind + p.id + '" rows="2" placeholder="—"' + (pend ? ' disabled' : '') + '>' + esc(p.notes) + '</textarea></td>' +
-      '<td>' + stageSelect(p) + '</td></tr>';
+      '<td>' + stageSelect(p, stages) + '</td></tr>';
   }
-  const payTable = list => '<div class="tbl-wrap"><table><thead><tr><th>Дата план</th><th class="num">Сумма, ₽</th><th>Назначение платежа</th><th>Примечания к оплате</th><th>Стадия</th></tr></thead><tbody>' + list.map(payRow).join('') + '</tbody></table></div>';
+  const payTable = (list, stages) => '<div class="tbl-wrap"><table><thead><tr><th>Дата план</th><th class="num">Сумма, ₽</th><th>Назначение платежа</th><th>Примечания к оплате</th><th>Стадия</th></tr></thead><tbody>' + list.map(p => payRow(p, stages)).join('') + '</tbody></table></div>';
   const mini = (l, v, c) => '<div class="mini"><div class="lbl">' + l + '</div><div class="val ' + (c || '') + '">' + v + '</div></div>';
 
   // ── По объекту ───────────────────────────────────────────────────────
+  // Данные объекта — отдельный запрос api/plan-object.php без фильтра периода
+  // (запрос 2026-10-09): по выбранному объекту видны ВСЕ его платежи, период
+  // с других вкладок здесь не действует.
+  function loadObject(dealId) {
+    const seq = ++objSeq;
+    OBJ = { loading: true, err: '', data: null };
+    renderObject();
+    window.api('GET', 'api/plan-object.php?deal=' + encodeURIComponent(dealId)).then(res => {
+      if (seq !== objSeq) return;
+      OBJ = { loading: false, err: '', data: res };
+      renderObject();
+    }).catch(err => {
+      if (seq !== objSeq) return;
+      OBJ = { loading: false, err: err.message, data: null };
+      renderObject();
+    });
+  }
+
   function renderObject() {
     if (objSel === null) { $('objectView').innerHTML = '<p class="muted">Нет объектов на портале.</p>'; return; }
     const deal = dealById(objSel);
-    const inc = P.payments.filter(p => p.dealId === objSel && p.amount > 0).sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1);
-    const incSum = inc.reduce((s, p) => s + p.amount, 0), incPaid = inc.filter(p => p.fact).reduce((s, p) => s + p.amount, 0);
-    const cons = P.contracts.filter(c => c.dealId === objSel);
-    const orphanExp = P.payments.filter(p => p.dealId === objSel && p.amount < 0 && !contractById(p.contractId));
-    let expAll = 0, expPaidAll = 0;
     let h = '<div class="filters" style="margin:0 0 6px"><label>Объект <select id="objPick">' +
       P.deals.map(d => '<option value="' + d.id + '"' + (d.id === objSel ? ' selected' : '') + '>' + esc(dealLabel(d)) + '</option>').join('') +
       '</select></label></div>';
+    if (OBJ && OBJ.loading) { $('objectView').innerHTML = h + '<p class="muted" style="padding:10px 0">Загрузка платежей объекта…</p>'; bindObjectPick(); return; }
+    if (OBJ && OBJ.err) {
+      $('objectView').innerHTML = h +
+        '<div class="error-banner" style="margin:6px 0"><span>' + esc(OBJ.err) + '</span>' +
+        '<button type="button" id="objRetry" class="btn-secondary" style="margin-left:8px;padding:3px 10px">Повторить</button></div>';
+      bindObjectPick();
+      $('objRetry').onclick = () => loadObject(objSel);
+      return;
+    }
+    const D = OBJ.data;                       // {deal, contracts, payments, stages}
+    const objStages = D.stages || {};
+    const contractByIdO = id => D.contracts.find(c => c.id === id) || null;
+    const inc = D.payments.filter(p => p.dealId === objSel && p.amount > 0).sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1);
+    const incSum = inc.reduce((s, p) => s + p.amount, 0), incPaid = inc.filter(p => p.fact).reduce((s, p) => s + p.amount, 0);
+    const cons = D.contracts.filter(c => c.dealId === objSel);
+    const orphanExp = D.payments.filter(p => p.dealId === objSel && p.amount < 0 && !contractByIdO(p.contractId));
+    let expAll = 0, expPaidAll = 0;
     if (inc.length) {
       h += '<div class="tree-l1"><div class="node-title">Сделка (доходный договор) · ' + esc(dealLabel(deal)) + '</div>' +
         '<div class="mini-grid">' + mini('Сумма договора', fmtSigned(incSum, 1), 'pos') + mini('Получено', fmtSigned(incPaid, 1), 'pos') + mini('Осталось получить', fmtSigned(incSum - incPaid, 1), '') + '</div>' +
         '<div class="bar"><span style="width:' + (incSum ? incPaid / incSum * 100 : 0) + '%;background:var(--inc)"></span></div>' +
-        '<h3>Оплаты (доход)</h3>' + payTable(inc);
+        '<h3>Оплаты (доход)</h3>' + payTable(inc, objStages);
     } else {
       h += '<div class="tree-l1" style="border-color:var(--muted)"><div class="node-title">Сделка (без доходной части) · ' + esc(dealLabel(deal)) + '</div>' +
         '<p class="muted" style="margin:4px 0 0">Доходных оплат нет — только расходы, тот же смарт-процесс Расход(П).</p>';
     }
     cons.forEach(c => {
-      const list = P.payments.filter(p => p.contractId === c.id).sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1);
+      const list = D.payments.filter(p => p.contractId === c.id).sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1);
       const planned = list.reduce((s, p) => s + p.amount, 0), paid = list.filter(p => p.fact).reduce((s, p) => s + p.amount, 0);
       const contractSum = -c.cost;                       // расход со знаком «−»
       const rest = contractSum - paid, undistr = contractSum - planned;
@@ -467,19 +503,19 @@
         mini('Распланировано платежами', fmt(planned, 1), '') + (undistr ? mini('Не распланировано', fmt(undistr, 1), 'neg') : '') + '</div>' +
         '<div class="bar"><span style="width:' + (c.cost ? paid / contractSum * 100 : 0) + '%;background:var(--exp)"></span></div>' +
         (undistr ? '<div class="error-banner" style="margin:6px 0"><span>Платежами распланировано меньше, чем сумма договора: <b>' + fmt(undistr, 1) + ' ₽</b> ещё не разложено — сумма должна была разложиться в ноль, проверь декомпозицию.</span></div>' : '') +
-        '<h3>Расход (П) — платежи подрядчику</h3>' + payTable(list) + '</div>';
+        '<h3>Расход (П) — платежи подрядчику</h3>' + payTable(list, objStages) + '</div>';
     });
     if (orphanExp.length) {
       const planned = orphanExp.reduce((s, p) => s + p.amount, 0);
       expAll += planned;
       h += '<div class="tree-l2"><div class="node-title">Расходы без подряда</div>' +
-        '<h3>Расход (П) — не привязан к подряду</h3>' + payTable(orphanExp) + '</div>';
+        '<h3>Расход (П) — не привязан к подряду</h3>' + payTable(orphanExp, objStages) + '</div>';
     }
     h += '</div>';
     const margin = incSum + expAll;
     h += '<div class="mini-grid" style="margin-top:18px">' + mini('Доходы по объекту', fmtSigned(incSum, 1), 'pos') + mini('Расходы по подрядам', fmt(expAll, 1), 'neg') + mini('Итог по объекту (доходы + расходы)', fmtSigned(margin, 1), cls(margin)) + mini('Из них уже факт', fmtSigned(incPaid + expPaidAll, 1), cls(incPaid + expPaidAll)) + '</div>';
     $('objectView').innerHTML = h;
-    $('objPick').onchange = e => { objSel = +e.target.value; renderObject(); };
+    bindObjectPick();
     $('objectView').querySelectorAll('[data-date-id]').forEach(inp => inp.onchange = e => {
       const p = findPay(inp.dataset.dateId);
       if (p && e.target.value) savePay(p, { date: e.target.value });
@@ -493,7 +529,12 @@
       if (p) savePay(p, { stage: e.target.value });
     });
   }
-  const findPay = key => P.payments.find(p => p.kind + p.id === key);
+  const bindObjectPick = () => {
+    const pick = $('objPick');
+    if (pick) pick.onchange = e => { objSel = +e.target.value; loadObject(objSel); };
+  };
+  // платежи вкладки «По объекту» живут в OBJ (не в P)
+  const findPay = key => (OBJ && OBJ.data && OBJ.data.payments ? OBJ.data.payments.find(p => p.kind + p.id === key) : null);
 
   // ── сборка/вкладки ───────────────────────────────────────────────────
   function renderAll() {
@@ -529,6 +570,8 @@
       }
       buildStaticSelects();
       renderAll();
+      // «По объекту» не зависит от периода — грузим только первый раз и после правок платежей
+      if (objNeedReload && objSel !== null) { objNeedReload = false; loadObject(objSel); }
     }).catch(err => {
       if (seq !== loadSeq) return;
       $('kpis').innerHTML = '';
@@ -564,7 +607,7 @@
     bind('fKind', 'kind'); bind('fText', 'text', 'input');
     $('fFrom').addEventListener('change', e => { F.from = e.target.value; loadPlan(); });
     $('fTo').addEventListener('change', e => { F.to = e.target.value; loadPlan(); });
-    $('refreshBtn').addEventListener('click', loadPlan);
+    $('refreshBtn').addEventListener('click', () => { objNeedReload = true; loadPlan(); });
     $('plan-retry').addEventListener('click', loadPlan);
     loadPlan();
   }
