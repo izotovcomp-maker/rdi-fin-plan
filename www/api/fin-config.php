@@ -37,6 +37,7 @@ const FIN_PAYSC_UF = [
 // Поля Сделок и Подрядов
 const FIN_DEAL_CODE  = 'UF_CRM_8_O_CODE';        // Код объекта
 const FIN_DEAL_SNAME = 'UF_CRM_8_O_SNAME';       // Краткое наименование объекта
+const FIN_DEAL_COST  = 'UF_CRM_8_O_COST';        // Цена контракта (автомат от этапов)
 const FIN_SCONTR_SNAME = 'UF_CRM_18_SCONTR_SNAME'; // Краткое наименование
 const FIN_SCONTR_COST  = 'UF_CRM_18_SCONTR_COST'; // Цена договора
 
@@ -231,6 +232,7 @@ function finNormDeal(array $d): array {
         'title'      => (string)(finItemField($d, 'TITLE', 'title') ?? ''),
         'code'       => trim((string)($d[FIN_DEAL_CODE] ?? '')),
         'sname'      => trim((string)($d[FIN_DEAL_SNAME] ?? '')),
+        'cost'       => finCostAbs($d[FIN_DEAL_COST] ?? 0),   // цена контракта; для плитки «Распределение доходов»
         'stageId'    => (string)(finItemField($d, 'STAGE_ID', 'stageId') ?? ''),
         'categoryId' => (int)(finItemField($d, 'CATEGORY_ID', 'categoryId') ?? 0),
     ];

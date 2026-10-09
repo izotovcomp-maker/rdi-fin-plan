@@ -534,6 +534,11 @@
     });
   }
 
+  // плитка распределения: всё разложено — «✔️ Распределено», есть разница — «❓ Не распределено {сумма}»
+  const distrTile = (label, diff) => Math.abs(diff) < 0.5
+    ? mini(label, '✔️ Распределено', 'pos')
+    : mini(label, '❓ Не распределено ' + fmt(diff, 1) + ' ₽', 'neg');
+
   function renderObject() {
     const editCount = Object.keys(objEdits).reduce((s, k) => s + Object.keys(objEdits[k]).length, 0);
     const progress = '<span class="obj-progress">Идет обновление 🔄</span>';
@@ -569,9 +574,12 @@
     const cons = D.contracts.filter(c => c.dealId === objSel);
     const orphanExp = D.payments.filter(p => p.dealId === objSel && p.amount < 0 && !contractByIdO(p.contractId));
     let expAll = 0, expPaidAll = 0;
+    const dealCost = deal ? deal.cost : 0;
+    const dealDiff = dealCost ? dealCost - incSum : null;   // цена контракта − сумма доходных платежей
     if (inc.length) {
       h += '<div class="tree-l1"><div class="node-title">Сделка (доходный договор) · ' + esc(dealLabel(deal)) + '</div>' +
-        '<div class="mini-grid">' + mini('Сумма договора', fmtSigned(incSum, 1), 'pos') + mini('Получено', fmtSigned(incPaid, 1), 'pos') + mini('Осталось получить', fmtSigned(incSum - incPaid, 1), '') + '</div>' +
+        '<div class="mini-grid">' + mini('Сумма договора', fmtSigned(incSum, 1), 'pos') + mini('Получено', fmtSigned(incPaid, 1), 'pos') + mini('Осталось получить', fmtSigned(incSum - incPaid, 1), '') +
+        (dealDiff === null ? '' : distrTile('Распределение доходов (цена контракта − доходы)', dealDiff)) + '</div>' +
         '<div class="bar"><span style="width:' + (incSum ? incPaid / incSum * 100 : 0) + '%;background:var(--inc)"></span></div>' +
         '<h3>Оплаты (доход)</h3>' + payTable(inc, objStages);
     } else {
@@ -586,9 +594,8 @@
       expAll += planned; expPaidAll += paid;
       h += '<div class="tree-l2"><div class="node-title">Подряд · ' + esc(c.sname || c.title) + '</div>' +
         '<div class="mini-grid">' + mini('Сумма подряда (план)', fmt(contractSum, 1), 'neg') + mini('Оплачено', fmt(paid, 1), 'neg') + mini('Остаток к оплате', fmt(rest, 1), '') +
-        mini('Распланировано платежами', fmt(planned, 1), '') + (undistr ? mini('Не распланировано', fmt(undistr, 1), 'neg') : '') + '</div>' +
+        distrTile('Распределение расходов (цена подряда − Расход(П))', undistr) + '</div>' +
         '<div class="bar"><span style="width:' + (c.cost ? paid / contractSum * 100 : 0) + '%;background:var(--exp)"></span></div>' +
-        (undistr ? '<div class="error-banner" style="margin:6px 0"><span>Платежами распланировано меньше, чем сумма договора: <b>' + fmt(undistr, 1) + ' ₽</b> ещё не разложено — сумма должна была разложиться в ноль, проверь декомпозицию.</span></div>' : '') +
         '<h3>Расход (П) — платежи подрядчику</h3>' + payTable(list, objStages) + '</div>';
     });
     if (orphanExp.length) {
