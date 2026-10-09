@@ -144,6 +144,10 @@ function finStageEntityId(string $stageId): ?string {
 
 /**
  * Список стадий по префиксам из stageId платежей: {prefix: [{id,name,color,semantics}]}.
+ * ВАЖНО: у crm.status.list для смарт-процессов стадия лежит в STATUS_ID — полная
+ * строка 'DT{ety}_{cat}:NEW' (ID записи — числовой, стадией не является; сверено
+ * с докой b24-rest-docs, how-to-get-stages-with-semantics). Фронт сопоставляет
+ * по статусной части, поэтому 'id' храним без префикса.
  * Цвета — живые из воронки портала; paid-стадия определяется по SEMANTICS='S'
  * (финальная стадия воронки), с fallback на код 'SUCCESS' (D-006).
  */
@@ -168,10 +172,13 @@ function finStages($b24, array $stageIds): array {
     foreach (array_keys($cmds) as $i => $k) {
         $list = [];
         foreach ((array)($pages[$k] ?? []) as $st) {
-            if (!is_array($st) || empty($st['ID'])) continue;
+            if (!is_array($st)) continue;
+            $rawStatusId = (string)($st['STATUS_ID'] ?? '');
+            $statusId    = $rawStatusId !== '' ? finStageStatusId($rawStatusId) : (string)($st['ID'] ?? '');
+            if ($statusId === '') continue;
             $list[] = [
-                'id'        => (string)$st['ID'],
-                'name'      => (string)($st['NAME'] ?? $st['ID']),
+                'id'        => $statusId,
+                'name'      => (string)($st['NAME'] ?? $statusId),
                 'color'     => (string)($st['COLOR'] ?? '#9aa0a6'),
                 'semantics' => (string)($st['SEMANTICS'] ?? ''),
             ];
