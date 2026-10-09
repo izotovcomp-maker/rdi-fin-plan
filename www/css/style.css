@@ -226,3 +226,8 @@ textarea.notes-pick { width: 100%; min-width: 180px; font: inherit; font-size: 1
   .indent { margin-left: 14px; }
   .tree-l2 { margin-left: 8px; }
 }
+
+/* несохранённые правки на вкладке «По объекту» (D-011) */
+.obj-actions { display: flex; align-items: center; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
+.edit-mark { display: inline-block; margin-left: 6px; font-size: 13px; color: var(--warn); }
+tr.edited td { background: #fdf6e8; }

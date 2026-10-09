@@ -416,29 +416,64 @@
       list.map(o => '<option value="' + esc(stagePrefix(p.stageId) + ':' + o.id) + '"' + (o.id === s.id ? ' selected' : '') + '>' + esc(o.name) + '</option>').join('') + '</select>';
   }
 
-  // ── правка платежа ───────────────────────────────────────────────────
-  // Смена стадии/даты запускает бизнес-процесс портала (переписывает дату,
-  // пересчитывает период и остатки) — поэтому после сохранения ждём и
-  // перезагружаем данные, а не пишем ответ в стейт (как в демо, D-004/D-006).
-  function savePay(p, patch) {
-    p._pending = true;
+  // ── правки платежей «По объекту» — накапливаются, отправляются одной кнопкой (D-011) ──
+  // objEdits: { 'pay12': {date?, notes?, stage?} } — только поля, отличающиеся
+  // от данных портала. Отправка — batch на api/plan-update.php; отмена —
+  // перезагрузка данных объекта. После отправки БП портала пересчитывает
+  // даты/периоды асинхронно, поэтому данные перезагружаем с задержкой.
+  let objEdits = {};
+  let objSending = false;
+
+  function recordEdit(p, field, value) {
+    const key = p.kind + p.id;
+    const orig = field === 'stage' ? p.stageId : p[field];
+    const ed = Object.assign({}, objEdits[key]);
+    if (value === orig) delete ed[field]; else ed[field] = value;
+    if (Object.keys(ed).length) objEdits[key] = ed; else delete objEdits[key];
     renderObject();
-    objNeedReload = true;   // после правки перезагрузим и свод, и данные объекта
-    window.api('POST', 'api/plan-update.php', Object.assign({ id: p.id, kind: p.kind }, patch))
-      .then(() => { setTimeout(loadPlan, 1500); })
-      .catch(err => { p._pending = false; showPlanError(err.message); renderObject(); });
+  }
+
+  function sendObjectEdits() {
+    const items = Object.keys(objEdits).map(key => {
+      const p = findPay(key);
+      const ed = objEdits[key];
+      const item = { id: p.id, kind: p.kind };
+      if (ed.date !== undefined && ed.date) item.date = ed.date;
+      if (ed.notes !== undefined) item.notes = ed.notes;
+      if (ed.stage !== undefined) item.stage = ed.stage;
+      return item;
+    }).filter(it => it.date || it.notes !== undefined || it.stage !== undefined);
+    if (!items.length) { objEdits = {}; renderObject(); return; }
+    objSending = true;
+    renderObject();
+    window.api('POST', 'api/plan-update.php', { items: items }).then(() => {
+      objEdits = {};
+      objSending = false;
+      objNeedReload = true;
+      renderObject();
+      setTimeout(loadPlan, 1500);   // БП портала пересчитывает даты/периоды — забираем свежие данные
+    }).catch(err => {
+      objSending = false;
+      showPlanError(err.message);
+      renderObject();
+    });
   }
 
   function payRow(p, stages) {
-    const pend = !!p._pending;
-    return '<tr><td class="cell-date' + (pend ? ' pending' : '') + '">' +
-        '<input type="date" class="date-pick" data-date-id="' + p.kind + p.id + '" value="' + (p.date || '') + '"' + (pend ? ' disabled' : '') + '>' +
+    const key = p.kind + p.id;
+    const ed = objEdits[key];
+    const pend = objSending;
+    const pp = ed && ed.stage ? Object.assign({}, p, { stageId: ed.stage }) : p;
+    const date = ed && ed.date !== undefined ? ed.date : p.date;
+    const notes = ed && ed.notes !== undefined ? ed.notes : p.notes;
+    return '<tr' + (ed ? ' class="edited"' : '') + '><td class="cell-date' + (pend ? ' pending' : '') + '">' +
+        '<input type="date" class="date-pick" data-date-id="' + key + '" value="' + (date || '') + '"' + (pend ? ' disabled' : '') + '>' +
         (pend ? '<div class="recalc-hint"><span class="dot"></span>данные обновляются…</div>' : '') +
       '</td>' +
       '<td class="num ' + cls(p.amount) + '">' + fmtSigned(p.amount, 1) + '</td>' +
       '<td class="wrap">' + esc(p.subject) + '</td>' +
-      '<td class="wrap"><textarea class="notes-pick" data-notes-id="' + p.kind + p.id + '" rows="2" placeholder="—"' + (pend ? ' disabled' : '') + '>' + esc(p.notes) + '</textarea></td>' +
-      '<td>' + stageSelect(p, stages) + '</td></tr>';
+      '<td class="wrap"><textarea class="notes-pick" data-notes-id="' + key + '" rows="2" placeholder="—"' + (pend ? ' disabled' : '') + '>' + esc(notes) + '</textarea></td>' +
+      '<td>' + stageSelect(pp, stages) + (ed ? '<span class="edit-mark" title="Изменено, ещё не отправлено на портал">✍</span>' : '') + '</td></tr>';
   }
   const payTable = (list, stages) => '<div class="tbl-wrap"><table><thead><tr><th>Дата план</th><th class="num">Сумма, ₽</th><th>Назначение платежа</th><th>Примечания к оплате</th><th>Стадия</th></tr></thead><tbody>' + list.map(p => payRow(p, stages)).join('') + '</tbody></table></div>';
   const mini = (l, v, c) => '<div class="mini"><div class="lbl">' + l + '</div><div class="val ' + (c || '') + '">' + v + '</div></div>';
@@ -465,9 +500,17 @@
   function renderObject() {
     if (objSel === null) { $('objectView').innerHTML = '<p class="muted">Нет объектов на портале.</p>'; return; }
     const deal = dealById(objSel);
+    const editCount = Object.keys(objEdits).length;
+    const objActions = editCount
+      ? '<div class="obj-actions">' +
+        '<button type="button" id="objApply" class="btn-primary"' + (objSending ? ' disabled' : '') + '>✅ Подтвердить и отправить все изменения (' + editCount + ')</button>' +
+        '<button type="button" id="objDiscard" class="btn-secondary"' + (objSending ? ' disabled' : '') + '>❎ Отменить изменения</button>' +
+        (objSending ? '<span class="recalc-hint"><span class="dot"></span>отправляем на портал…</span>' : '') +
+        '</div>'
+      : '';
     let h = '<div class="filters" style="margin:0 0 6px"><label>Объект <select id="objPick">' +
       P.deals.map(d => '<option value="' + d.id + '"' + (d.id === objSel ? ' selected' : '') + '>' + esc(dealLabel(d)) + '</option>').join('') +
-      '</select></label></div>';
+      '</select></label></div>' + objActions;
     if (!OBJ || OBJ.loading) { $('objectView').innerHTML = h + '<p class="muted" style="padding:10px 0">Загрузка платежей объекта…</p>'; bindObjectPick(); return; }
     if (OBJ && OBJ.err) {
       $('objectView').innerHTML = h +
@@ -518,22 +561,26 @@
     h += '<div class="mini-grid" style="margin-top:18px">' + mini('Доходы по объекту', fmtSigned(incSum, 1), 'pos') + mini('Расходы по подрядам', fmt(expAll, 1), 'neg') + mini('Итог по объекту (доходы + расходы)', fmtSigned(margin, 1), cls(margin)) + mini('Из них уже факт', fmtSigned(incPaid + expPaidAll, 1), cls(incPaid + expPaidAll)) + '</div>';
     $('objectView').innerHTML = h;
     bindObjectPick();
+    const applyBtn = $('objApply');
+    if (applyBtn) applyBtn.onclick = sendObjectEdits;
+    const discardBtn = $('objDiscard');
+    if (discardBtn) discardBtn.onclick = () => { objEdits = {}; loadObject(objSel); };
     $('objectView').querySelectorAll('[data-date-id]').forEach(inp => inp.onchange = e => {
       const p = findPay(inp.dataset.dateId);
-      if (p && e.target.value) savePay(p, { date: e.target.value });
+      if (p && e.target.value) recordEdit(p, 'date', e.target.value);
     });
     $('objectView').querySelectorAll('[data-notes-id]').forEach(inp => inp.onchange = e => {
       const p = findPay(inp.dataset.notesId);
-      if (p) savePay(p, { notes: e.target.value });
+      if (p) recordEdit(p, 'notes', e.target.value);
     });
     $('objectView').querySelectorAll('[data-stage-id]').forEach(sel => sel.onchange = e => {
       const p = findPay(sel.dataset.stageId);
-      if (p) savePay(p, { stage: e.target.value });
+      if (p) recordEdit(p, 'stage', e.target.value);
     });
   }
   const bindObjectPick = () => {
     const pick = $('objPick');
-    if (pick) pick.onchange = e => { objSel = +e.target.value; loadObject(objSel); };
+    if (pick) pick.onchange = e => { objSel = +e.target.value; objEdits = {}; objSending = false; loadObject(objSel); };
   };
   // платежи вкладки «По объекту» живут в OBJ (не в P)
   const findPay = key => (OBJ && OBJ.data && OBJ.data.payments ? OBJ.data.payments.find(p => p.kind + p.id === key) : null);
