@@ -511,10 +511,10 @@
     const s = stageMeta(d, P.stages);
     return s.semantics === 'S' || s.semantics === 'F';   // терминальные стадии
   };
-  const objSwitch = () => '<div class="obj-actions">' +
+  const objSwitch = () => '<div class="obj-switch"><span class="obj-switch-label">Фильтр сделок</span><div class="obj-switch-btns">' +
     [['active', 'В реализации'], ['done', 'Завершено'], ['all', 'Все']].map(([v, l]) =>
-      '<button type="button" data-objf="' + v + '" class="btn-secondary objf' + (objStageFilter === v ? ' active' : '') + '">' + l + '</button>').join('') +
-    '</div>';
+      '<button type="button" data-objf="' + v + '" class="objf' + (objStageFilter === v ? ' active' : '') + '">' + l + '</button>').join('') +
+    '</div></div>';
   const objDeals = () => sortDeals(P.deals).filter(d =>
     objStageFilter === 'all' ? true : (objStageFilter === 'done' ? isDoneDeal(d) : !isDoneDeal(d)));
 
@@ -546,8 +546,7 @@
     let h = '<div class="filters" style="margin:0 0 6px"><label>Объект <select id="objPick">' +
       '<option value="">— выберите объект —</option>' +
       objDeals().map(d => '<option value="' + d.id + '"' + (d.id === objSel ? ' selected' : '') + '>' + esc(dealLabel(d)) + '</option>').join('') +
-      '</select></label>' + objSwitch() + '</div>' + objActions;
-    if (objSel === null) {   // объект не выбран — данных нет, ничего не грузим
+      '</select></label>' + objSwitch() + '</div>' + objActions;    if (objSel === null) {   // объект не выбран — данных нет, ничего не грузим
       $('objectView').innerHTML = h + '<p class="muted" style="padding:10px 0">Выберите объект из списка.</p>';
       bindObjectPick();
       return;

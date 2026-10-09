@@ -233,4 +233,8 @@ textarea.notes-pick { width: 100%; min-width: 180px; font: inherit; font-size: 1
 tr.edited td { background: #fdf6e8; }
 .obj-progress { display: inline-flex; align-items: center; font-size: 13px; font-weight: 600; color: var(--warn); }
 input.date-pick { width: 92px; }
+.obj-switch { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.obj-switch-btns { display: flex; gap: 6px; border: 1.5px solid var(--ink); border-radius: 8px; padding: 4px; }
+.objf { font: inherit; font-family: var(--font-mono); font-size: 12px; padding: 4px 12px; border-radius: 6px; border: 1px solid var(--muted); background: transparent; cursor: pointer; }
+.objf:hover { background: var(--handle-fill); }
 .objf.active { background: var(--accent); border-color: var(--accent); color: #fff; }
