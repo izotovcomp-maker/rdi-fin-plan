@@ -365,7 +365,62 @@
   }
 
   // ── Реестр ───────────────────────────────────────────────────────────
+  // «✍ Режим правки даты» (запрос 2026-10-09): включается кнопкой-переключателем,
+  // правки накапливаются в reestrEdits (та же логика, что на «По объекту») и
+  // отправляются одной пачкой. Выключение режима возвращает даты в вид «ДД.ММ.ГГГГ»,
+  // накопленные правки и кнопки подтверждения остаются.
+  let reestrEditMode = false;
+  let reestrEdits = {};
+  let reestrSending = false;
+
+  const findReestrPay = key => (P && P.payments ? P.payments.find(p => p.kind + p.id === key) : null);
+  const reestrEditCount = () => Object.keys(reestrEdits).reduce((s, k) => s + Object.keys(reestrEdits[k]).length, 0);
+
+  function recordReestrEdit(p, field, value) {
+    const key = p.kind + p.id;
+    const orig = field === 'stage' ? p.stageId : p[field];
+    const ed = Object.assign({}, reestrEdits[key]);
+    if (value === orig) delete ed[field]; else ed[field] = value;
+    if (Object.keys(ed).length) reestrEdits[key] = ed; else delete reestrEdits[key];
+    renderReestr();
+  }
+
+  function sendReestrEdits() {
+    const items = Object.keys(reestrEdits).map(key => {
+      const p = findReestrPay(key);
+      const ed = reestrEdits[key];
+      const item = { id: p.id, kind: p.kind };
+      if (ed.date !== undefined && ed.date) item.date = ed.date;
+      if (ed.notes !== undefined) item.notes = ed.notes;
+      if (ed.stage !== undefined) item.stage = ed.stage;
+      return item;
+    }).filter(it => it.date || it.notes !== undefined || it.stage !== undefined);
+    if (!items.length) { reestrEdits = {}; renderReestr(); return; }
+    reestrSending = true;
+    renderReestr();
+    window.api('POST', 'api/plan-update.php', { items: items }).then(() => {
+      reestrEdits = {};
+      reestrSending = false;
+      objNeedReload = true;
+      renderReestr();
+      setTimeout(loadPlan, 1500);   // БП портала пересчитывает даты/периоды — забираем свежие данные
+    }).catch(err => {
+      reestrSending = false;
+      showPlanError(err.message);
+      renderReestr();
+    });
+  }
+
   function renderReestr() {
+    const progress = '<span class="obj-progress">Идет обновление 🔄</span>';
+    const cnt = reestrEditCount();
+    const toolbar = '<div class="obj-actions">' +
+      '<button type="button" id="reestrEditBtn" class="objf' + (reestrEditMode ? ' active' : '') + '" title="Включает редактирование «Дата план» в таблице">✍ Режим правки даты</button>' +
+      (cnt ? (reestrSending ? progress :
+        '<button type="button" id="reestrApply" class="btn-primary">✅ Подтвердить и отправить все изменения (' + cnt + ')</button>' +
+        '<button type="button" id="reestrDiscard" class="btn-secondary">❎ Отменить изменения</button>')
+      : (reestrSending ? progress : '')) +
+      '</div>';
     const list = filtered(true).slice();
     const val = p => sortKey === 'obj' ? dealLabel(dealById(p.dealId), p.dealId)
       : (sortKey === 'purpose' ? p.subject
@@ -373,7 +428,7 @@
       : (sortKey === 'period' ? (periodOf(p) || '') + p.date : (p.date || ''))));
     list.sort((a, b) => { const x = val(a), y = val(b); return (x < y ? -1 : x > y ? 1 : 0) * sortDir || (a.id - b.id); });
     const arrow = k => sortKey === k ? (sortDir > 0 ? ' ▲' : ' ▼') : '';
-    let h = '<table><thead><tr>' +
+    let h = toolbar + '<table><thead><tr>' +
       '<th class="sortable" data-s="period">Период (ГГММ)' + arrow('period') + '</th>' +
       '<th class="sortable" data-s="date">Дата' + arrow('date') + '</th>' +
       '<th class="sortable num" data-s="amount">Сумма, ₽' + arrow('amount') + '</th>' +
@@ -381,12 +436,17 @@
       '<th class="sortable" data-s="purpose">Назначение платежа' + arrow('purpose') + '</th>' +
       '<th>Статус</th></tr></thead><tbody>';
     list.forEach(p => {
+      const key = p.kind + p.id;
+      const ed = reestrEdits[key];
       const con = contractById(p.contractId);
-      h += '<tr><td>' + (periodOf(p) || '—') + '</td><td>' + fmtDate(p.date) + '</td>' +
+      const dateCell = reestrEditMode
+        ? '<input type="text" class="date-pick" inputmode="numeric" autocomplete="off" data-rdate-id="' + key + '" value="' + esc(isoToRu(ed && ed.date !== undefined ? ed.date : p.date)) + '" placeholder="ДД.ММ.ГГГГ" maxlength="10"' + (reestrSending ? ' disabled' : '') + '>'
+        : esc(fmtDate(ed && ed.date !== undefined ? ed.date : p.date));
+      h += '<tr' + (ed ? ' class="edited"' : '') + '><td>' + (periodOf(p) || '—') + '</td><td>' + dateCell + '</td>' +
         '<td class="num ' + cls(p.amount) + '">' + fmtSigned(p.amount, 1) + '</td>' +
         '<td>' + esc(dealLabel(dealById(p.dealId), p.dealId)) + '</td>' +
         '<td class="wrap">' + esc(p.subject) + (con ? '<div class="muted" style="font-size:11px">Подряд: ' + esc(con.sname || con.title) + '</div>' : '') + '</td>' +
-        '<td>' + stageBadge(p) + '</td></tr>';
+        '<td>' + stageBadge(p) + (ed ? '<span class="edit-mark" title="Изменено, ещё не отправлено на портал">✍</span>' : '') + '</td></tr>';
     });
     const tot = list.reduce((s, p) => s + p.amount, 0);
     const inc = list.filter(p => p.amount > 0).reduce((s, p) => s + p.amount, 0);
@@ -394,6 +454,25 @@
     $('reestr').innerHTML = h;
     $('reestr').querySelectorAll('th.sortable').forEach(th => th.onclick = () => {
       const k = th.dataset.s; if (sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = 1; } renderReestr();
+    });
+    const editBtn = $('reestrEditBtn');
+    if (editBtn) editBtn.onclick = () => { reestrEditMode = !reestrEditMode; renderReestr(); };
+    const applyBtn = $('reestrApply');
+    if (applyBtn) applyBtn.onclick = sendReestrEdits;
+    const discardBtn = $('reestrDiscard');
+    if (discardBtn) discardBtn.onclick = () => { reestrEdits = {}; renderReestr(); };
+    $('reestr').querySelectorAll('[data-rdate-id]').forEach(inp => {
+      inp.oninput = e => { e.target.value = fmtDateInput(e.target.value); };
+      inp.onchange = e => {
+        const p = findReestrPay(inp.dataset.rdateId);
+        if (!p) return;
+        const iso = parseRuDate(e.target.value);
+        if (iso) recordReestrEdit(p, 'date', iso);
+        else {
+          const ed = reestrEdits[p.kind + p.id];
+          e.target.value = isoToRu(ed && ed.date !== undefined ? ed.date : p.date);
+        }
+      };
     });
   }
 
