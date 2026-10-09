@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Финансовый план — демо</title>
+<style>
+:root {
+  --ink: #17181a;
+  --bg: #efece3;
+  --card-bg: #faf9f4;
+  --border: #d8d4c8;
+  --text: #24262a;
+  --muted: #6b6f76;
+  --accent: #2f5fdb;
+  --accent-bg: #e8eefc;
+  --inc: #1e6b1e;
+  --inc-bg: #e6f3e2;
+  --exp: #c23b31;
+  --exp-bg: #fdecea;
+  --warn: #b7791f;
+  --warn-bg: #fff8e6;
+  --row-hover: #f1eee3;
+  --handle-fill: #e9f5b0;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, system-ui, Segoe UI, Roboto, sans-serif;
+  color: var(--text);
+  line-height: 1.5;
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+#app { max-width: 1400px; margin: 0 auto; padding: 24px 20px 60px; }
+h1 { margin: 0 0 4px; color: var(--ink); font-family: var(--font-mono); letter-spacing: -0.01em; font-size: 26px; }
+h2 { margin: 0 0 10px; color: var(--ink); font-family: var(--font-mono); font-size: 16px; }
+h3 { margin: 16px 0 6px; font-size: 14px; color: var(--ink); }
+.muted { color: var(--muted); }
+.demo-banner {
+  margin: 12px 0 0; padding: 10px 14px; background: var(--warn-bg); border: 1px solid var(--warn);
+  border-radius: 6px; font-size: 13px; color: #6b4a10;
+}
+.card {
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 16px 18px; margin-top: 18px;
+}
+
+/* KPI */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-top: 18px; }
+.kpi { background: var(--card-bg); border: 1px solid var(--ink); border-radius: 6px; padding: 12px 14px; }
+.kpi .lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.kpi .val { font-family: var(--font-mono); font-size: 22px; font-weight: 600; margin-top: 2px; white-space: nowrap; }
+.kpi .sub { font-size: 12px; color: var(--muted); }
+.pos { color: var(--inc); }
+.neg { color: var(--exp); }
+
+/* tabs & filters */
+.tabs { display: flex; gap: 6px; margin-top: 22px; flex-wrap: wrap; border-bottom: 2px solid var(--ink); }
+.tab {
+  font: inherit; font-family: var(--font-mono); font-size: 13px; padding: 8px 14px; cursor: pointer;
+  background: transparent; border: 1px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0; color: var(--muted);
+}
+.tab:hover { color: var(--ink); }
+.tab.active { background: var(--ink); color: #fff; }
+.filters { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; margin-top: 14px; }
+.filters label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; }
+select, input[type=text] {
+  font: inherit; font-size: 14px; padding: 6px 8px; border: 1px solid var(--ink); border-radius: 4px; background: #fff; color: var(--text);
+}
+button.btn {
+  font: inherit; font-size: 13px; padding: 5px 10px; border: 1px solid var(--ink); border-radius: 4px; background: #fff; cursor: pointer; color: var(--ink);
+}
+button.btn:hover { background: var(--handle-fill); }
+button.btn.ok { background: var(--inc-bg); border-color: var(--inc); color: var(--inc); }
+button.btn.ok:hover { background: #d3ebcc; }
+
+/* tables */
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+th { background: #f1eee3; color: var(--ink); font-weight: 600; position: sticky; top: 0; }
+td.num, th.num { text-align: right; font-family: var(--font-mono); }
+tbody tr:hover { background: var(--row-hover); }
+td.wrap { white-space: normal; min-width: 260px; }
+tr.grp td { background: #e7e3d6; font-weight: 700; color: var(--ink); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+tr.tot td { font-weight: 700; background: #f1eee3; border-top: 1px solid var(--ink); }
+tr.saldo td { font-weight: 700; }
+tr.cum td { font-weight: 700; border-bottom: 2px solid var(--ink); }
+td.cur, th.cur { background: rgba(47,95,219,.07); }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--accent); }
+.cell-neg-cum { background: var(--exp-bg); color: var(--exp); }
+.tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.tag.warn { background: var(--warn-bg); color: var(--warn); }
+select.stage-pick { font-size: 12px; padding: 3px 6px; border-radius: 10px; font-weight: 600; border-width: 1px; }
+input[type=date].date-pick { font-family: var(--font-mono); font-size: 12px; padding: 4px 6px; }
+textarea.notes-pick { width: 100%; min-width: 180px; font: inherit; font-size: 12px; padding: 4px 6px; resize: vertical; white-space: pre-wrap; }
+.recalc-hint { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--warn); margin-top: 3px; }
+.recalc-hint .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
+.cell-date.pending input { opacity: .6; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 5px; vertical-align: -2px; }
+svg text { font-family: var(--font-mono); font-size: 11px; fill: var(--muted); }
+
+/* object view */
+.obj-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 10px 0; }
+.mini { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: #fff; }
+.mini .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.mini .val { font-family: var(--font-mono); font-size: 16px; font-weight: 600; }
+.bar { height: 8px; background: #e2dfd3; border-radius: 4px; overflow: hidden; margin: 6px 0 2px; }
+.bar > span { display: block; height: 100%; }
+.tree-l1 { border-left: 4px solid var(--inc); padding-left: 14px; margin-top: 14px; }
+.tree-l2 { border-left: 4px solid var(--exp); padding-left: 14px; margin: 14px 0 0 24px; }
+.node-title { font-family: var(--font-mono); font-weight: 600; color: var(--ink); }
+
+/* explain */
+.flow { display: grid; grid-template-columns: 1fr; gap: 0; max-width: 820px; }
+.box { border: 1px solid var(--ink); border-radius: 6px; padding: 10px 14px; background: #fff; }
+.box.inc { border-color: var(--inc); background: var(--inc-bg); }
+.box.exp { border-color: var(--exp); background: var(--exp-bg); }
+.box .t { font-family: var(--font-mono); font-weight: 700; color: var(--ink); }
+.box .d { font-size: 13px; }
+.arrow { text-align: center; color: var(--muted); font-size: 12px; padding: 2px 0; }
+.indent { margin-left: 34px; }
+.formula {
+  font-family: var(--font-mono); background: #fff; border: 1px dashed var(--ink); border-radius: 6px;
+  padding: 10px 14px; margin: 10px 0; font-size: 14px;
+}
+ul.tight { margin: 6px 0; padding-left: 20px; }
+ul.tight li { margin: 3px 0; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+.hidden { display: none; }
+@media (max-width: 640px) { #app { padding: 16px 12px 40px; } .indent { margin-left: 14px; } .tree-l2 { margin-left: 8px; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Финансовый план · движение денежных средств</h1>
+    <div class="muted">Сводка по всем объектам: что придёт, что уйдёт и сколько будет на счёте в каждом месяце</div>
+    <div class="demo-banner"><b>Демонстрация на условных цифрах.</b> Названия объектов и суммы придуманы. На вкладке «По объекту» можно менять «Дата план», «Примечания к оплате» и стадию прямо тут, без захода в смарт-процесс: стадия — выбор из реальных стадий воронки (цвета ориентировочные, до сверки с Б24), а не бинарный тумблер. Переход в «Счёт оплачен» переписывает дату на сегодня — как это делает бизнес-процесс, — а «Период план» пересчитывается не мгновенно: доля секунды с пометкой «период пересчитывается…», пока «отрабатывает» БП, потом обновляются остатки и сводка.
+      <button class="btn" id="resetBtn" style="margin-left:8px">Сбросить демо</button></div>
+  </header>
+
+  <div class="kpis" id="kpis"></div>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-tab="svod">Свод по месяцам</button>
+    <button class="tab" data-tab="reestr">Реестр движений</button>
+    <button class="tab" data-tab="object">По объекту</button>
+    <button class="tab" data-tab="explain">Как это считается</button>
+  </nav>
+
+  <div class="filters" id="filters">
+    <label>Объект <select id="fObj"></select></label>
+    <label>Период с <select id="fFrom"></select></label>
+    <label>по <select id="fTo"></select></label>
+    <label>Что показывать
+      <select id="fMode">
+        <option value="all">Факт + план</option>
+        <option value="fact">Только факт («Счёт оплачен»)</option>
+        <option value="plan">Только план (ещё не оплачено)</option>
+      </select>
+    </label>
+    <label id="fUnitWrap">Единицы
+      <select id="fUnit">
+        <option value="1000">тыс. ₽</option>
+        <option value="1">₽</option>
+        <option value="1000000">млн ₽</option>
+      </select>
+    </label>
+  </div>
+
+  <section id="tab-svod" class="tabpane">
+    <div class="card">
+      <h2>Динамика по месяцам</h2>
+      <div id="chart"></div>
+      <div class="legend">
+        <span><i style="background:var(--inc)"></i>Доходы, факт</span>
+        <span><i style="background:var(--inc);opacity:.4"></i>Доходы, план</span>
+        <span><i style="background:var(--exp)"></i>Расходы, факт</span>
+        <span><i style="background:var(--exp);opacity:.4"></i>Расходы, план</span>
+        <span><i style="background:var(--accent);height:3px;vertical-align:3px"></i>Остаток нарастающим итогом</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Таблица: объекты × месяцы</h2>
+      <div class="tbl-wrap" id="matrix"></div>
+      <p class="muted" style="font-size:12px;margin:8px 0 0">Красным выделены месяцы, в которых нарастающий остаток уходит в минус — то есть денег не хватает.</p>
+    </div>
+  </section>
+
+  <section id="tab-reestr" class="tabpane hidden">
+    <div class="card">
+      <h2>Реестр всех платежей</h2>
+      <div class="filters" style="margin-top:0;margin-bottom:10px">
+        <label>Тип
+          <select id="fKind"><option value="">Доходы и расходы</option><option value="inc">Только доходы</option><option value="exp">Только расходы</option></select>
+        </label>
+        <label>Вид платежа
+          <select id="fNum"><option value="">Все</option><option value="1">Платеж номер 1</option><option value="2">Платеж номер 2</option><option value="3">Платеж номер 3</option><option value="4">Платеж номер 4</option><option value="5">Платеж номер 5</option><option value="6">Платеж номер 6</option><option value="7">Платеж номер 7</option><option value="8">Платеж номер 8</option></select>
+        </label>
+        <label>Поиск по назначению <input type="text" id="fText" placeholder="например: аванс"></label>
+      </div>
+      <div class="tbl-wrap" id="reestr"></div>
+      <p class="muted" style="font-size:12px;margin:8px 0 0">Это ровно те колонки, из которых строится план: Период · Дата · Сумма · Объект · Назначение платежа. Заголовки колонок кликабельны — сортировка. Сумма внизу — это и есть сальдо: доходы (+) и расходы (−) просто складываются.</p>
+    </div>
+  </section>
+
+  <section id="tab-object" class="tabpane hidden">
+    <div class="card" id="objectView"></div>
+  </section>
+
+  <section id="tab-explain" class="tabpane hidden">
+    <div class="card">
+      <h2>Откуда берутся цифры</h2>
+      <p style="margin-top:0">Всё строится на одном принципе: <b>каждый будущий или свершившийся платёж — это отдельная запись с датой и суммой</b>. Доходные платежи — со знаком «+», расходные — со знаком «−». Приложение собирает все такие записи и группирует по месяцам и объектам.</p>
+      <div class="two">
+        <div>
+          <div class="flow">
+            <div class="box inc"><div class="t">Сделка (доходный договор)</div><div class="d">Объект: код + название. Например «9990 ЖК Солнечный».</div></div>
+            <div class="arrow">▼ к сделке привязываются</div>
+            <div class="indent">
+              <div class="box inc"><div class="t">Оплаты — ДОХОД (+)</div><div class="d">Дата план · Сумма · Назначение платежа. <br>Пример: 20.09.2026 · +5 400 000 · «Платеж номер 2. Оплата этапа 1»</div></div>
+            </div>
+            <div class="arrow">▼ к той же сделке привязывается</div>
+            <div class="indent">
+              <div class="box exp"><div class="t">Подряд — ПЛАН расходов (−)</div><div class="d">Подрядчик и <b>сумма подрядного договора</b>, например −9 000 000. Это потолок расходов по подряду.</div></div>
+              <div class="arrow">▼ к подряду привязываются</div>
+              <div class="indent">
+                <div class="box exp"><div class="t">Расход (П) — платежи подрядчику (−)</div><div class="d">Дата план · Сумма · Назначение платежа. <br>Пример: 25.11.2026 · −2 400 000 · «Платеж номер 3. Оплата после экспертизы»</div></div>
+              </div>
+            </div>
+            <div class="arrow">▼ отдельно — расходы без доходного договора</div>
+            <div class="box exp"><div class="t">Нереализационная сделка (общехозяйственные)</div><div class="d">Та же схема, но без Оплат: к сделке сразу привязан Расход(П) — аренда, ФОТ, налоги. Пример — объект «Общехозяйственные расходы (АУП)» на вкладке «По объекту».</div></div>
+          </div>
+        </div>
+        <div>
+          <h3 style="margin-top:0">Формула</h3>
+          <div class="formula">Сальдо = сумма всех платежей<br>(доходы «+», расходы «−»)</div>
+          <ul class="tight">
+            <li>Никакого вычитания и разных формул: доходы положительные, расходы отрицательные, итог — просто сумма.</li>
+            <li>Отрицательное число в любой выгрузке сразу читается как расход.</li>
+            <li>Сальдо «нарастающим итогом» показывает, сколько денег будет на конец каждого месяца.</li>
+          </ul>
+          <h3>План становится фактом</h3>
+          <ul class="tight">
+            <li>Платёж создаётся в стадии «План» — это прогноз.</li>
+            <li>Когда платёж переведён в стадию <b>«Счёт оплачен»</b>, бизнес-процесс сам переписывает «Дата план» и «Период план» на сегодняшнюю дату — отдельного поля «дата факта» не требуется.</li>
+            <li>Для подряда автоматически пересчитывается <b>остаток к оплате</b>: сумма договора минус оплаченное.</li>
+          </ul>
+          <h3>Какие поля используются</h3>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>Колонка в плане</th><th>Откуда берётся</th></tr></thead>
+            <tbody>
+              <tr><td>Период (ГГММ)</td><td>«Период план» = ГГММ от «Дата план», считается автоматически</td></tr>
+              <tr><td>Дата</td><td>«Дата план» платежа (после оплаты — дата факта, см. выше)</td></tr>
+              <tr><td>Сумма</td><td>«Сумма к оплате», с НДС (доход «+», расход «−»)</td></tr>
+              <tr><td>Объект</td><td>Код объекта сделки</td></tr>
+              <tr><td>Назначение платежа</td><td>«Предмет оплаты»</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Пример на одном объекте</h2>
+      <div id="worked"></div>
+    </div>
+
+    <div class="card">
+      <h2>Что уже согласовано</h2>
+      <ul class="tight">
+        <li><b>Отдельной «даты факта» нет.</b> При переводе платежа в «Счёт оплачен» бизнес-процесс сам переписывает «Дата план» и «Период план» на сегодняшнюю дату — дата оплаченного платежа и есть дата факта.</li>
+        <li><b>Период всегда = месяц даты плана</b>, считается автоматически (`ГГММ` от «Дата план»), отдельно не вводится.</li>
+        <li><b>Общехозяйственные расходы (аренда, ФОТ, налоги) включены</b> — для них заведена отдельная «Нереализационная» воронка в Сделках, тот же смарт-процесс Расход(П), просто без доходной части. Пример — объект «Общехозяйственные расходы (АУП)» на вкладке «По объекту».</li>
+        <li><b>Суммы — с НДС</b>, отдельного разреза без НДС не делаем.</li>
+        <li><b>«Не распланировано» оставляем как проверку.</b> Сумма подряда должна разложиться платежами Расход(П) в ноль; остаток — сигнал, что декомпозиция не завершена, а не «резерв на будущее».</li>
+        <li><b>Доступ — по отделам</b>, как в «Пульте АУП»: список отделов редактируется через UI («Доступ» в шапке), по умолчанию открыт только отдел «Администрация», расширяется без правок кода.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script>
+'use strict';
+/* ---------- условные данные ---------- */
+const TODAY = '2026-09-28';
+const DEALS = {
+  '9990': 'ЖК Солнечный',
+  '9991': 'ЖК Мечта',
+  '0003': 'Школа №5',
+  '0004': 'Склад Логистик',
+  '0000': 'Общехозяйственные расходы (АУП)'
+};
+/* Подряды: сумма договора задаётся отдельно от платежей.
+   label: если задан — это не подряд, а статья затрат внутри нереализационной сделки
+   (общехозяйственные расходы) — та же схема Сделка → Расход(П), но без Оплат. */
+const CONTRACTS = [
+  { id: 'c1', deal: '9990', name: 'ООО «Архстрой» — проектирование', sum: -9000000 },
+  { id: 'c2', deal: '9990', name: 'ИП Ковалёв — геодезия', sum: -1500000 },
+  { id: 'c3', deal: '9991', name: 'ООО «Форма» — проектирование', sum: -13000000 },
+  { id: 'c4', deal: '9991', name: 'ООО «Геос» — инженерные изыскания', sum: -2400000 },
+  { id: 'c5', deal: '0003', name: 'ООО «Архстрой» — проектирование', sum: -6000000 },
+  { id: 'c6', deal: '0004', name: 'ООО «Стройпроект» — проектирование', sum: -3600000 },
+  { id: 'c7', deal: '0000', name: 'Аренда офиса', sum: -2400000, label: 'Статья затрат' },
+  { id: 'c8', deal: '0000', name: 'ФОТ АУП', sum: -6000000, label: 'Статья затрат' },
+  { id: 'c9', deal: '0000', name: 'Налоги и страховые взносы', sum: -1800000, label: 'Статья затрат' }
+];
+/* Стадии смарт-процесса Оплаты (source/RDI Доходы.md). Цвета — живые, из воронки
+   портала: crm.status.list.json?filter[ENTITY_ID]=DYNAMIC_1046_STAGE_18
+   (сверено 2026-09-29, entityTypeId=1046, categoryId=18, см. D-006).
+   paid=true — только эта стадия пишет «Сумма оплачено» и считается фактом
+   (см. business-процесс A_Pay Изменение). */
+const STAGES = [
+  { code: 'NEW',        name: 'Инициализация',   color: '#000000' },
+  { code: 'UC_2OSNCS',  name: 'План',             color: '#f36509' },
+  { code: 'PREPARATION',name: 'Закр Готовы',      color: '#10e5fc' },
+  { code: 'CLIENT',     name: 'Закр Подписаны',   color: '#00a74c' },
+  { code: 'UC_83O6WQ',  name: 'Счёт отправлен',   color: '#fff300' },
+  { code: 'SUCCESS',    name: 'Счёт оплачен',     color: '#00ff00', paid: true },
+  { code: 'FAIL',       name: 'Аннулирование',    color: '#ff0000' }
+];
+const stageOf = code => STAGES.find(s => s.code === code) || STAGES[1];
+const isPaid = p => stageOf(p.stage).paid === true;
+/* [сделка, подряд(или null для дохода), дата, сумма, назначение, оплачено?, стадия?, примечания?]
+   7-й элемент — код стадии, если это не просто «План»/«Счёт оплачен» (демонстрация
+   промежуточных стадий, которые НЕ откатываются в «План» при уходе со «Счёт оплачен»).
+   8-й — UF_CRM_12_PAY_NOTES, редактируется прямо в приложении (вкладка «По объекту»). */
+const SEED = [
+  ['9990', null, '2026-07-15',  3600000, 'Платеж номер 1. Аванс 20%', 1, undefined, 'Оплата по счёту №14 от 10.07.2026'],
+  ['9990', null, '2026-09-20',  5400000, 'Платеж номер 2. Оплата этапа 1 — Разработка ПД', 1],
+  ['9990', null, '2026-11-25',  5400000, 'Платеж номер 3. Оплата этапа 2 — Прохождение экспертизы', 0],
+  ['9990', null, '2027-01-30',  3600000, 'Платеж номер 4. Закрытие, подписание актов', 0, 'CLIENT'],
+  ['9990', 'c1', '2026-08-10', -1800000, 'Платеж номер 1. Аванс по этапу 1', 1],
+  ['9990', 'c1', '2026-09-25', -3600000, 'Платеж номер 2. Оплата разработки ПД', 1],
+  ['9990', 'c1', '2026-11-15', -2400000, 'Платеж номер 3. Оплата после экспертизы', 0, undefined, 'Ждём закрывающие документы от подрядчика.\nАкт подписан, счёт выставлен 20.11.'],
+  ['9990', 'c1', '2026-12-20', -1200000, 'Платеж номер 4. Окончательный расчёт', 0],
+  ['9990', 'c2', '2026-07-25',  -750000, 'Платеж номер 1. Аванс', 1],
+  ['9990', 'c2', '2026-08-30',  -750000, 'Платеж номер 2. Оплата по акту', 1],
+
+  ['9991', null, '2026-08-05',  4800000, 'Платеж номер 1. Аванс 20%', 1],
+  ['9991', null, '2026-11-20',  7200000, 'Платеж номер 2. Оплата этапа 1 — Стадия П', 0],
+  ['9991', null, '2026-12-15',  7200000, 'Платеж номер 3. Оплата этапа 2 — Рабочая документация', 0],
+  ['9991', null, '2027-02-28',  4800000, 'Платеж номер 4. Закрытие договора', 0],
+  ['9991', 'c3', '2026-08-12', -2600000, 'Платеж номер 1. Аванс по этапу 1', 1],
+  ['9991', 'c3', '2026-10-30', -4400000, 'Платеж номер 2. Оплата этапа 1', 0],
+  ['9991', 'c3', '2027-01-20', -4000000, 'Платеж номер 3. Оплата этапа 2', 0],
+  ['9991', 'c3', '2027-02-25', -2000000, 'Платеж номер 4. Окончательный расчёт', 0],
+  ['9991', 'c4', '2026-09-10', -1200000, 'Платеж номер 1. Аванс', 1],
+  ['9991', 'c4', '2026-10-20', -1200000, 'Платеж номер 2. Оплата по акту', 0],
+
+  ['0003', null, '2026-10-31',  2700000, 'Платеж номер 1. Аванс 30%', 0],
+  ['0003', null, '2026-11-10',  3600000, 'Платеж номер 2. Оплата этапа 1', 0],
+  ['0003', null, '2027-01-20',  2700000, 'Платеж номер 3. Закрытие договора', 0],
+  ['0003', 'c5', '2026-10-05', -1350000, 'Платеж номер 1. Аванс', 0],
+  ['0003', 'c5', '2026-11-25', -2700000, 'Платеж номер 2. Оплата этапа 1', 0],
+  ['0003', 'c5', '2027-01-30', -1350000, 'Платеж номер 3. Окончательный расчёт', 0],
+
+  ['0004', null, '2026-07-20',  1800000, 'Платеж номер 1. Аванс 30%', 1],
+  ['0004', null, '2026-08-28',  2400000, 'Платеж номер 2. Оплата этапа 1', 1],
+  ['0004', null, '2026-11-10',  1800000, 'Платеж номер 3. Закрытие договора', 0],
+  ['0004', 'c6', '2026-07-30', -1080000, 'Платеж номер 1. Аванс', 1],
+  ['0004', 'c6', '2026-09-05', -1440000, 'Платеж номер 2. Оплата этапа 1', 1],
+  ['0004', 'c6', '2026-10-30', -1080000, 'Платеж номер 3. Окончательный расчёт', 0],
+
+  ['0000', 'c7', '2026-07-05',  -300000, 'Платеж номер 1. Аренда офиса за июль', 1],
+  ['0000', 'c7', '2026-08-05',  -300000, 'Платеж номер 2. Аренда офиса за август', 1],
+  ['0000', 'c7', '2026-09-05',  -300000, 'Платеж номер 3. Аренда офиса за сентябрь', 1],
+  ['0000', 'c7', '2026-10-05',  -300000, 'Платеж номер 4. Аренда офиса за октябрь', 0],
+  ['0000', 'c7', '2026-11-05',  -300000, 'Платеж номер 5. Аренда офиса за ноябрь', 0],
+  ['0000', 'c7', '2026-12-05',  -300000, 'Платеж номер 6. Аренда офиса за декабрь', 0],
+  ['0000', 'c7', '2027-01-05',  -300000, 'Платеж номер 7. Аренда офиса за январь', 0],
+  ['0000', 'c7', '2027-02-05',  -300000, 'Платеж номер 8. Аренда офиса за февраль', 0],
+  ['0000', 'c8', '2026-07-28',  -750000, 'Платеж номер 1. ФОТ АУП за июль', 1],
+  ['0000', 'c8', '2026-08-28',  -750000, 'Платеж номер 2. ФОТ АУП за август', 1],
+  ['0000', 'c8', '2026-09-28',  -750000, 'Платеж номер 3. ФОТ АУП за сентябрь', 1],
+  ['0000', 'c8', '2026-10-28',  -750000, 'Платеж номер 4. ФОТ АУП за октябрь', 0],
+  ['0000', 'c8', '2026-11-28',  -750000, 'Платеж номер 5. ФОТ АУП за ноябрь', 0],
+  ['0000', 'c8', '2026-12-28',  -750000, 'Платеж номер 6. ФОТ АУП за декабрь', 0],
+  ['0000', 'c8', '2027-01-28',  -750000, 'Платеж номер 7. ФОТ АУП за январь', 0],
+  ['0000', 'c8', '2027-02-28',  -750000, 'Платеж номер 8. ФОТ АУП за февраль', 0],
+  ['0000', 'c9', '2026-07-25',  -600000, 'Платеж номер 1. Налоги и взносы за 3 квартал', 1],
+  ['0000', 'c9', '2026-10-25',  -600000, 'Платеж номер 2. Налоги и взносы за 4 квартал', 0],
+  ['0000', 'c9', '2027-01-25',  -600000, 'Платеж номер 3. Налоги и взносы за 1 квартал', 0]
+];
+
+let pays = [];
+function loadSeed() {
+  pays = SEED.map((r, i) => ({
+    id: i + 1, deal: r[0], contract: r[1], date: r[2], amount: r[3], purpose: r[4],
+    stage: r[6] || (r[5] ? 'SUCCESS' : 'UC_2OSNCS'),
+    notes: r[7] || '',
+    period: r[2].slice(2, 4) + r[2].slice(5, 7)
+  }));
+}
+loadSeed();
+
+/* ---------- утилиты ---------- */
+const MON = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+const $ = id => document.getElementById(id);
+const MONTHS = (() => { const a = []; for (let y = 26, m = 7; !(y === 27 && m === 3); ) { a.push(('' + y) + ('0' + m).slice(-2)); if (++m > 12) { m = 1; y++; } } return a; })();
+const monLabel = p => MON[+p.slice(2) - 1] + ' ' + p.slice(0, 2);
+const CUR_PERIOD = TODAY.slice(2, 4) + TODAY.slice(5, 7);
+const dealName = c => '<' + c + '> ' + DEALS[c];
+const fmtDate = d => d.slice(8) + '.' + d.slice(5, 7) + '.' + d.slice(0, 4);
+const MINUS = '−';
+function fmt(v, unit) {
+  unit = unit || 1;
+  if (v === 0) return '—';
+  const x = v / unit;
+  const digits = unit === 1000000 ? 2 : (unit === 1000 ? (Math.abs(x) < 100 && x % 1 ? 1 : 0) : 0);
+  const s = Math.abs(x).toLocaleString('ru-RU', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return (v < 0 ? MINUS : '') + s;
+}
+function fmtSigned(v, unit) { return (v > 0 ? '+' : '') + fmt(v, unit); }
+const cls = v => v > 0 ? 'pos' : (v < 0 ? 'neg' : '');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* ---------- фильтры ---------- */
+const F = { obj: '', from: MONTHS[0], to: MONTHS[MONTHS.length - 1], mode: 'all', unit: 1000, kind: '', num: '', text: '' };
+let sortKey = 'date', sortDir = 1, activeTab = 'svod', objSel = '9990';
+
+function filtered(extra) {
+  return pays.filter(p => {
+    if (F.obj && p.deal !== F.obj) return false;
+    if (p.period < F.from || p.period > F.to) return false;
+    if (F.mode === 'fact' && !isPaid(p)) return false;
+    if (F.mode === 'plan' && isPaid(p)) return false;
+    if (extra) {
+      if (F.kind === 'inc' && p.amount < 0) return false;
+      if (F.kind === 'exp' && p.amount > 0) return false;
+      if (F.num) { const m = /^Платеж номер (\d+)/.exec(p.purpose); if (!m || m[1] !== F.num) return false; }
+      if (F.text && p.purpose.toLowerCase().indexOf(F.text.toLowerCase()) < 0) return false;
+    }
+    return true;
+  });
+}
+
+/* ---------- KPI ---------- */
+function renderKpis() {
+  const list = filtered(false);
+  const inc = list.filter(p => p.amount > 0).reduce((s, p) => s + p.amount, 0);
+  const exp = list.filter(p => p.amount < 0).reduce((s, p) => s + p.amount, 0);
+  const saldo = inc + exp;
+  const factSaldo = list.filter(isPaid).reduce((s, p) => s + p.amount, 0);
+  // минимальный нарастающий остаток
+  const byM = {}; list.forEach(p => { byM[p.period] = (byM[p.period] || 0) + p.amount; });
+  let cum = 0, min = 0, minP = null;
+  MONTHS.forEach(m => { if (m < F.from || m > F.to) return; cum += byM[m] || 0; if (cum < min) { min = cum; minP = m; } });
+  const u = F.unit, ul = u === 1 ? '₽' : (u === 1000 ? 'тыс. ₽' : 'млн ₽');
+  $('kpis').innerHTML =
+    kpi('Доходы', fmtSigned(inc, u), 'pos', ul + ' · в выбранном периоде') +
+    kpi('Расходы', fmt(exp, u), 'neg', ul + ' · платежи подрядчикам') +
+    kpi('Сальдо периода', fmtSigned(saldo, u), cls(saldo), ul + ' · доходы + расходы') +
+    kpi('Уже фактически', fmtSigned(factSaldo, u), cls(factSaldo), ul + ' · по «Счёт оплачен»') +
+    kpi('Самая низкая точка', min < 0 ? fmt(min, u) : 'нет провалов', min < 0 ? 'neg' : 'pos', min < 0 ? ul + ' · ' + monLabel(minP) + ' — кассовый разрыв' : 'остаток не уходит в минус');
+}
+const kpi = (l, v, c, s) => '<div class="kpi"><div class="lbl">' + l + '</div><div class="val ' + c + '">' + v + '</div><div class="sub">' + s + '</div></div>';
+
+/* ---------- Свод: график ---------- */
+function renderChart(list) {
+  const months = MONTHS.filter(m => m >= F.from && m <= F.to);
+  const d = {}; months.forEach(m => d[m] = { iF: 0, iP: 0, eF: 0, eP: 0 });
+  list.forEach(p => { const o = d[p.period]; if (!o) return; const pd = isPaid(p); if (p.amount > 0) o[pd ? 'iF' : 'iP'] += p.amount; else o[pd ? 'eF' : 'eP'] += p.amount; });
+  let cum = 0; const cums = months.map(m => { const o = d[m]; cum += o.iF + o.iP + o.eF + o.eP; return cum; });
+  let max = 0, min = 0;
+  months.forEach((m, i) => { const o = d[m]; max = Math.max(max, o.iF + o.iP, cums[i]); min = Math.min(min, o.eF + o.eP, cums[i]); });
+  if (max === 0 && min === 0) { $('chart').innerHTML = '<p class="muted">Нет данных по выбранным фильтрам.</p>'; return; }
+  const W = 920, H = 300, L = 62, R = 12, T = 14, B = 30, pw = W - L - R, ph = H - T - B;
+  const span = (max - min) || 1, pad = span * .06; max += pad; if (min < 0) min -= pad;
+  const y = v => T + (max - v) / (max - min) * ph;
+  const step = pw / months.length, bw = Math.min(46, step * .5);
+  let g = '';
+  // сетка
+  const ticks = 5, raw = (max - min) / ticks, mag = Math.pow(10, Math.floor(Math.log10(raw))), nice = [1, 2, 2.5, 5, 10].map(k => k * mag).find(k => k >= raw);
+  for (let t = Math.ceil(min / nice) * nice; t <= max; t += nice) {
+    g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(t) + '" y2="' + y(t) + '" stroke="' + (Math.abs(t) < 1 ? '#17181a' : '#d8d4c8') + '" stroke-width="' + (Math.abs(t) < 1 ? 1.2 : 1) + '"/>';
+    g += '<text x="' + (L - 6) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + (Math.abs(t) < nice / 1000 ? '0' : (t / 1e6).toLocaleString('ru-RU', { maximumFractionDigits: 1 })) + '</text>';
+  }
+  g += '<text x="4" y="10">млн ₽</text>';
+  const rect = (x, v0, v1, c, op, strokeDash) => {
+    const yt = y(Math.max(v0, v1)), yb = y(Math.min(v0, v1)); if (yb - yt < .5) return '';
+    return '<rect x="' + x + '" y="' + yt + '" width="' + bw + '" height="' + (yb - yt) + '" fill="' + c + '" opacity="' + op + '"' + (strokeDash ? ' stroke="' + c + '" stroke-dasharray="3 2"' : '') + '/>';
+  };
+  let pts = [];
+  months.forEach((m, i) => {
+    const o = d[m], cx = L + step * i + step / 2, x = cx - bw / 2;
+    if (m === CUR_PERIOD) g += '<rect x="' + (L + step * i) + '" y="' + T + '" width="' + step + '" height="' + ph + '" fill="#2f5fdb" opacity=".07"/><text x="' + cx + '" y="' + (T + 10) + '" text-anchor="middle" style="fill:#2f5fdb">сегодня</text>';
+    g += rect(x, 0, o.iF, '#1e6b1e', 1) + rect(x, o.iF, o.iF + o.iP, '#1e6b1e', .4, true);
+    g += rect(x, 0, o.eF, '#c23b31', 1) + rect(x, o.eF, o.eF + o.eP, '#c23b31', .4, true);
+    g += '<text x="' + cx + '" y="' + (H - 10) + '" text-anchor="middle">' + monLabel(m) + '</text>';
+    pts.push([cx, y(cums[i])]);
+  });
+  g += '<polyline fill="none" stroke="#2f5fdb" stroke-width="2.5" points="' + pts.map(p => p.join(',')).join(' ') + '"/>';
+  pts.forEach((p, i) => { g += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="4" fill="' + (cums[i] < 0 ? '#c23b31' : '#2f5fdb') + '" stroke="#fff" stroke-width="1.5"><title>' + monLabel(months[i]) + ': остаток ' + fmt(cums[i], 1) + ' ₽</title></circle>'; });
+  $('chart').innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Динамика доходов, расходов и остатка по месяцам">' + g + '</svg>';
+}
+
+/* ---------- Свод: матрица ---------- */
+function renderMatrix(list) {
+  const months = MONTHS.filter(m => m >= F.from && m <= F.to);
+  const u = F.unit;
+  const deals = Object.keys(DEALS).filter(c => !F.obj || F.obj === c);
+  const incDeals = deals.filter(c => pays.some(p => p.deal === c && p.amount > 0));
+  const expDeals = deals.filter(c => pays.some(p => p.deal === c && p.amount < 0));
+  const cell = (v, extraCls) => '<td class="num ' + extraCls + ' ' + cls(v) + '">' + (v ? fmt(v, u) : '<span class="muted">—</span>') + '</td>';
+  const sumBy = (fn) => months.map(m => list.filter(p => p.period === m && fn(p)).reduce((s, p) => s + p.amount, 0));
+  let h = '<table><thead><tr><th>Объект</th>' + months.map(m => '<th class="num ' + (m === CUR_PERIOD ? 'cur' : '') + '">' + monLabel(m) + '</th>').join('') + '<th class="num">Итого</th></tr></thead><tbody>';
+  const rowFor = (label, arr, rowCls) => {
+    const tot = arr.reduce((a, b) => a + b, 0);
+    return '<tr class="' + (rowCls || '') + '"><td>' + label + '</td>' + arr.map((v, i) => cell(v, months[i] === CUR_PERIOD ? 'cur' : '')).join('') + '<td class="num ' + cls(tot) + '"><b>' + fmt(tot, u) + '</b></td></tr>';
+  };
+  h += '<tr class="grp"><td colspan="' + (months.length + 2) + '">Доходы</td></tr>';
+  incDeals.forEach(c => { h += rowFor(esc(dealName(c)), sumBy(p => p.deal === c && p.amount > 0)); });
+  const inc = sumBy(p => p.amount > 0);
+  h += rowFor('Итого доходы', inc, 'tot');
+  h += '<tr class="grp"><td colspan="' + (months.length + 2) + '">Расходы</td></tr>';
+  expDeals.forEach(c => { h += rowFor(esc(dealName(c)), sumBy(p => p.deal === c && p.amount < 0)); });
+  const exp = sumBy(p => p.amount < 0);
+  h += rowFor('Итого расходы', exp, 'tot');
+  const saldo = months.map((m, i) => inc[i] + exp[i]);
+  h += rowFor('Сальдо за месяц', saldo, 'saldo');
+  let c = 0; const cum = saldo.map(v => c += v);
+  h += '<tr class="cum"><td>Остаток нарастающим итогом</td>' + cum.map((v, i) => '<td class="num ' + (v < 0 ? 'cell-neg-cum' : (months[i] === CUR_PERIOD ? 'cur ' : '') + 'pos') + '">' + fmt(v, u).replace('—', '0') + '</td>').join('') + '<td class="num ' + cls(c) + '">' + fmt(c, u) + '</td></tr>';
+  h += '</tbody></table>';
+  $('matrix').innerHTML = h;
+}
+
+/* ---------- Реестр ---------- */
+function renderReestr() {
+  const list = filtered(true).slice();
+  const val = (p) => sortKey === 'obj' ? p.deal : (sortKey === 'purpose' ? p.purpose : (sortKey === 'amount' ? p.amount : (sortKey === 'period' ? p.period + p.date : p.date)));
+  list.sort((a, b) => { const x = val(a), y = val(b); return (x < y ? -1 : x > y ? 1 : 0) * sortDir || (a.id - b.id); });
+  const arrow = k => sortKey === k ? (sortDir > 0 ? ' ▲' : ' ▼') : '';
+  let h = '<table><thead><tr>' +
+    '<th class="sortable" data-s="period">Период (ГГММ)' + arrow('period') + '</th>' +
+    '<th class="sortable" data-s="date">Дата' + arrow('date') + '</th>' +
+    '<th class="sortable num" data-s="amount">Сумма, ₽' + arrow('amount') + '</th>' +
+    '<th class="sortable" data-s="obj">Объект' + arrow('obj') + '</th>' +
+    '<th class="sortable" data-s="purpose">Назначение платежа' + arrow('purpose') + '</th>' +
+    '<th>Статус</th></tr></thead><tbody>';
+  list.forEach(p => {
+    const con = p.contract ? CONTRACTS.find(c => c.id === p.contract) : null;
+    h += '<tr><td>' + p.period + '</td><td>' + fmtDate(p.date) + '</td><td class="num ' + cls(p.amount) + '">' + fmtSigned(p.amount, 1) + '</td><td>' + esc(dealName(p.deal)) + '</td>' +
+      '<td class="wrap">' + esc(p.purpose) + (con ? '<div class="muted" style="font-size:11px">Подряд: ' + esc(con.name) + '</div>' : '') + '</td>' +
+      '<td>' + stageTag(p.stage) + '</td></tr>';
+  });
+  const tot = list.reduce((s, p) => s + p.amount, 0);
+  const inc = list.filter(p => p.amount > 0).reduce((s, p) => s + p.amount, 0);
+  h += '</tbody><tfoot><tr class="tot"><td colspan="2">Записей: ' + list.length + '</td><td class="num ' + cls(tot) + '">' + fmtSigned(tot, 1) + '</td><td colspan="3">← сальдо (доходы ' + fmtSigned(inc, 1) + ' и расходы ' + fmt(tot - inc, 1) + ' просто сложены)</td></tr></tfoot></table>';
+  $('reestr').innerHTML = h;
+  $('reestr').querySelectorAll('th.sortable').forEach(th => th.onclick = () => {
+    const k = th.dataset.s; if (sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = 1; } renderReestr();
+  });
+}
+
+/* ---------- По объекту ---------- */
+/* Живые цвета стадий (0x000000..0xffffff, от чёрного до жёлтого) — контрастный
+   текст по YIQ-яркости, иначе, например, жёлтый/зелёный фон съедает текст того же цвета. */
+const contrastText = hex => {
+  const n = parseInt(hex.slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? '#17181a' : '#ffffff';
+};
+const stageTag = code => { const s = stageOf(code); return '<span class="tag" style="background:' + s.color + ';color:' + contrastText(s.color) + '">' + esc(s.name) + '</span>'; };
+const stageSelect = p => {
+  const s = stageOf(p.stage);
+  return '<select class="stage-pick" data-stage-id="' + p.id + '" style="background:' + s.color + ';border-color:' + s.color + ';color:' + contrastText(s.color) + '"' + (p._recalcPending ? ' disabled' : '') + '>' +
+    STAGES.map(o => '<option value="' + o.code + '"' + (o.code === p.stage ? ' selected' : '') + '>' + esc(o.name) + '</option>').join('') + '</select>';
+};
+/* Симулирует реальный БП: изменение «Дата план» триггерит пересчёт «Период план»
+   не мгновенно, а после того, как отработает бизнес-процесс — поэтому строка
+   на время «зависает» (disabled + индикатор), а не пересчитывается синхронно. */
+function scheduleRecalc(p) {
+  p._recalcPending = true;
+  renderAll();
+  setTimeout(() => {
+    p.period = p.date.slice(2, 4) + p.date.slice(5, 7);
+    p._recalcPending = false;
+    renderAll();
+  }, 900);
+}
+function payRow(p) {
+  const pend = p._recalcPending;
+  return '<tr><td class="cell-date' + (pend ? ' pending' : '') + '">' +
+      '<input type="date" class="date-pick" data-date-id="' + p.id + '" value="' + p.date + '"' + (pend ? ' disabled' : '') + '>' +
+      (pend ? '<div class="recalc-hint"><span class="dot"></span>период пересчитывается…</div>' : '') +
+    '</td>' +
+    '<td class="num ' + cls(p.amount) + '">' + fmtSigned(p.amount, 1) + '</td>' +
+    '<td class="wrap">' + esc(p.purpose) + '</td>' +
+    '<td class="wrap"><textarea class="notes-pick" data-notes-id="' + p.id + '" rows="2" placeholder="—">' + esc(p.notes) + '</textarea></td>' +
+    '<td>' + stageSelect(p) + '</td></tr>';
+}
+const payTable = list => '<div class="tbl-wrap"><table><thead><tr><th>Дата план</th><th class="num">Сумма, ₽</th><th>Назначение платежа</th><th>Примечания к оплате</th><th>Стадия</th></tr></thead><tbody>' + list.map(payRow).join('') + '</tbody></table></div>';
+const mini = (l, v, c) => '<div class="mini"><div class="lbl">' + l + '</div><div class="val ' + (c || '') + '">' + v + '</div></div>';
+
+function renderObject() {
+  const opts = Object.keys(DEALS).map(c => '<option value="' + c + '"' + (c === objSel ? ' selected' : '') + '>' + esc(dealName(c)) + '</option>').join('');
+  const inc = pays.filter(p => p.deal === objSel && p.amount > 0).sort((a, b) => a.date < b.date ? -1 : 1);
+  const incSum = inc.reduce((s, p) => s + p.amount, 0), incPaid = inc.filter(isPaid).reduce((s, p) => s + p.amount, 0);
+  const cons = CONTRACTS.filter(c => c.deal === objSel);
+  let expAll = 0, expPaidAll = 0;
+  let h = '<div class="filters" style="margin:0 0 6px"><label>Объект <select id="objPick">' + opts + '</select></label></div>';
+  if (inc.length) {
+    h += '<div class="tree-l1"><div class="node-title">Сделка (доходный договор) · ' + esc(dealName(objSel)) + '</div>' +
+      '<div class="obj-grid">' + mini('Сумма договора', fmtSigned(incSum, 1), 'pos') + mini('Получено', fmtSigned(incPaid, 1), 'pos') + mini('Осталось получить', fmtSigned(incSum - incPaid, 1), '') + '</div>' +
+      '<div class="bar"><span style="width:' + (incSum ? incPaid / incSum * 100 : 0) + '%;background:var(--inc)"></span></div>' +
+      '<h3>Оплаты (доход)</h3>' + payTable(inc);
+  } else {
+    h += '<div class="tree-l1" style="border-color:var(--muted)"><div class="node-title">Сделка (нереализационная) · ' + esc(dealName(objSel)) + '</div>' +
+      '<p class="muted" style="margin:4px 0 0">Без доходного договора — только расходы, тот же смарт-процесс Расход(П), просто без Оплат сверху.</p>';
+  }
+  cons.forEach(c => {
+    const list = pays.filter(p => p.contract === c.id).sort((a, b) => a.date < b.date ? -1 : 1);
+    const planned = list.reduce((s, p) => s + p.amount, 0), paid = list.filter(isPaid).reduce((s, p) => s + p.amount, 0);
+    const rest = c.sum - paid, undistr = c.sum - planned;
+    const isArticle = !!c.label;
+    expAll += planned; expPaidAll += paid;
+    h += '<div class="tree-l2"><div class="node-title">' + (c.label || 'Подряд') + ' · ' + esc(c.name) + '</div>' +
+      '<div class="obj-grid">' + mini(isArticle ? 'План по статье' : 'Сумма подряда (план)', fmt(c.sum, 1), 'neg') + mini('Оплачено', fmt(paid, 1), 'neg') + mini('Остаток к оплате', fmt(rest, 1), '') +
+      mini('Распланировано платежами', fmt(planned, 1), '') + (undistr ? mini('Не распланировано', fmt(undistr, 1), 'neg') : '') + '</div>' +
+      '<div class="bar"><span style="width:' + (c.sum ? paid / c.sum * 100 : 0) + '%;background:var(--exp)"></span></div>' +
+      (undistr ? '<div class="demo-banner" style="margin:6px 0">Платежами распланировано меньше, чем сумма ' + (isArticle ? 'по статье' : 'договора') + ': <b>' + fmt(undistr, 1) + ' ₽</b> ещё не разложено платежами — сумма должна была разложиться в ноль, это сигнал проверить декомпозицию.</div>' : '') +
+      '<h3>Расход (П) — ' + (isArticle ? 'платежи по статье' : 'платежи подрядчику') + '</h3>' + payTable(list) + '</div>';
+  });
+  h += '</div>';
+  const margin = incSum + expAll;
+  h += '<div class="obj-grid" style="margin-top:18px">' + mini('Доходы по объекту', fmtSigned(incSum, 1), 'pos') + mini('Расходы по подрядам / статьям', fmt(expAll, 1), 'neg') + mini('Итог по объекту (доходы + расходы)', fmtSigned(margin, 1), cls(margin)) + mini('Из них уже факт', fmtSigned(incPaid + expPaidAll, 1), cls(incPaid + expPaidAll)) + '</div>';
+  $('objectView').innerHTML = h;
+  $('objPick').onchange = e => { objSel = e.target.value; renderObject(); };
+  $('objectView').querySelectorAll('[data-date-id]').forEach(inp => inp.onchange = e => {
+    const p = pays.find(x => x.id === +inp.dataset.dateId);
+    p.date = e.target.value;
+    scheduleRecalc(p);
+  });
+  $('objectView').querySelectorAll('[data-notes-id]').forEach(inp => inp.onchange = e => {
+    const p = pays.find(x => x.id === +inp.dataset.notesId);
+    p.notes = e.target.value;
+    renderAll();
+  });
+  $('objectView').querySelectorAll('[data-stage-id]').forEach(sel => sel.onchange = e => {
+    const p = pays.find(x => x.id === +sel.dataset.stageId);
+    const wasPaid = isPaid(p);
+    p.stage = e.target.value;
+    if (isPaid(p) && !wasPaid) {
+      // как в реальном бизнес-процессе: переход в «Счёт оплачен» переписывает дату/период на сегодня
+      p.date = TODAY;
+      scheduleRecalc(p);
+    } else {
+      // уход со «Счёт оплачен» НЕ откатывает дату/стадию в «План» — можно
+      // остаться, например, на «Закр Подписаны», если заказчик не оплатил
+      renderAll();
+    }
+  });
+}
+
+/* ---------- Пример ---------- */
+function renderWorked() {
+  const inc = SEED.filter(r => r[0] === '9990' && r[1] === null), exp = SEED.filter(r => r[0] === '9990' && r[1] === 'c1');
+  const rows = arr => arr.map(r => '<tr><td>' + fmtDate(r[2]) + '</td><td class="num ' + cls(r[3]) + '">' + fmtSigned(r[3], 1) + '</td><td class="wrap">' + esc(r[4]) + '</td></tr>').join('');
+  const sum = arr => arr.reduce((s, r) => s + r[3], 0);
+  $('worked').innerHTML = '<p style="margin-top:0">Объект <b>«9990 ЖК Солнечный»</b>, подряд «ООО Архстрой — проектирование». В план попадают только платежи (строки ниже), договор подряда нужен для контроля остатка.</p>' +
+    '<div class="two"><div><h3 style="margin-top:0">Доходные платежи</h3><table><tbody>' + rows(inc) + '<tr class="tot"><td>Итого</td><td class="num pos">' + fmtSigned(sum(inc), 1) + '</td><td></td></tr></tbody></table></div>' +
+    '<div><h3 style="margin-top:0">Расходные платежи подряду</h3><table><tbody>' + rows(exp) + '<tr class="tot"><td>Итого</td><td class="num neg">' + fmt(sum(exp), 1) + '</td><td></td></tr></tbody></table></div></div>' +
+    '<div class="formula">Итог по подряду: ' + fmtSigned(sum(inc), 1) + ' ' + MINUS + ' ' + fmt(Math.abs(sum(exp)), 1) + ' = ' + fmtSigned(sum(inc) + sum(exp), 1) + ' ₽ (остаётся объекту до учёта других подрядов)</div>' +
+    '<p class="muted" style="margin-bottom:0">Обратите внимание: суммы расходов уже с минусом, поэтому «итог» — обычное сложение, без отдельной формулы.</p>';
+}
+
+/* ---------- сборка ---------- */
+function renderAll() {
+  renderKpis();
+  const list = filtered(false);
+  renderChart(list); renderMatrix(list); renderReestr(); renderObject();
+}
+function setTab(t) {
+  activeTab = t;
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  document.querySelectorAll('.tabpane').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-' + t));
+  $('filters').classList.toggle('hidden', t === 'object' || t === 'explain');
+  $('fUnitWrap').classList.toggle('hidden', t === 'reestr');
+  $('kpis').classList.toggle('hidden', t === 'explain');
+}
+function init() {
+  $('fObj').innerHTML = '<option value="">Все объекты</option>' + Object.keys(DEALS).map(c => '<option value="' + c + '">' + esc(dealName(c)) + '</option>').join('');
+  const mo = MONTHS.map(m => '<option value="' + m + '">' + monLabel(m) + ' (' + m + ')</option>').join('');
+  $('fFrom').innerHTML = mo; $('fTo').innerHTML = mo; $('fTo').value = MONTHS[MONTHS.length - 1];
+  const bind = (id, key, ev) => $(id).addEventListener(ev || 'change', e => {
+    F[key] = key === 'unit' ? +e.target.value : e.target.value;
+    if (F.from > F.to) { if (key === 'from') { F.to = F.from; $('fTo').value = F.to; } else { F.from = F.to; $('fFrom').value = F.from; } }
+    renderAll();
+  });
+  bind('fObj', 'obj'); bind('fFrom', 'from'); bind('fTo', 'to'); bind('fMode', 'mode'); bind('fUnit', 'unit');
+  bind('fKind', 'kind'); bind('fNum', 'num'); bind('fText', 'text', 'input');
+  document.querySelectorAll('.tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+  $('resetBtn').onclick = () => { loadSeed(); renderAll(); };
+  renderWorked(); renderAll(); setTab(['svod','reestr','object','explain'].indexOf(location.hash.slice(1)) >= 0 ? location.hash.slice(1) : 'svod');
+}
+init();
+</script>
+</body>
+</html>

@@ -1,14 +1,9 @@
 ---
-description: Пошаговая привязка приложения к порталу Б24 — заготовка, агент подставляет значения проекта по docs/deploy-targets.md
+description: Пошаговая привязка приложения «Фин план» (rdi-fin-plan) к порталу ooordi.bitrix24.ru — профиль prod
 ---
 # Как привязать приложение к порталу Битрикс24
 
-> **Заготовка.** Метки `{{...}}` агент заменяет значениями проекта после выбора
-> профиля деплоя (правила — `docs/deploy-targets.md`, раздел «Как агент собирает
-> how-to-link.md»). В готовом файле меток быть не должно. Сервер заказчика без SSH
-> (FTP, shared-хостинг) — [how-to-link-ALL.md](how-to-link-ALL.md).
-
-**Проект:** `{{SLUG}}` · **Профиль деплоя:** `{{TARGET}}` · **URL:** `{{APP_URL}}/`
+**Проект:** `rdi-fin-plan` · **Профиль деплоя:** `prod` · **URL:** `https://rub24.blackboxbegin.space/rdi-fin-plan/`
 
 ## Что такое client_id и client_secret
 
@@ -19,57 +14,57 @@ description: Пошаговая привязка приложения к пор�
 | `client_id` | Идентификатор приложения — говорит Б24, *какое* приложение делает запрос |
 | `client_secret` | Секретный ключ — доказывает, что запрос делает *настоящий* владелец приложения |
 
-Хранятся в `{{DEPLOY_DIR}}/env.php` на сервере. **Никогда не коммитить в git.**
+Хранятся в `/var/www/b24/rdi-fin-plan/env.php` на сервере. **Никогда не коммитить в git.**
 
 ---
 
 ## Порядок действий
 
-<!-- Только для профиля customer: оставь раздел «0», для prod/lab — удали его целиком. -->
-### 0. Для заказчика: завести пользователя для деплоя
-
-Отправь заказчику блок команд из `docs/deploy-targets.md` (раздел «Команды для
-заказчика»), подставив: ОС, группу веб-сервера, каталог `{{DEPLOY_ROOT}}`,
-публичный ключ. Когда заказчик выполнит и пришлёт адрес, порт и подтверждение —
-проверь вход командой из того же раздела и заполни `deploy.customer.env`.
-
 ### 1. Проверить и задеплоить
 
 ```bash
 bash deploy.sh --dry-run     # что изменится — ничего не меняет
-bash deploy.sh               # профиль из .deploy-target ({{TARGET}})
+bash deploy.sh               # профиль из .deploy-target (prod)
 ```
 
-Доступ к серверу: {{SERVER_ACCESS}}.
-При первом деплое скрипт сам создаёт `{{DEPLOY_DIR}}/env.php` из `env.example` с
-верными `APP_URL` (`{{APP_URL}}`), `APP_PATH` и `DATA_ROOT` — править их руками не нужно.
+Доступ к серверу: `ssh iagdeploy@rub24.blackboxbegin.space`.
+При первом деплое скрипт сам создаёт `/var/www/b24/rdi-fin-plan/env.php` из
+`env.example` с верными `APP_URL` (`https://rub24.blackboxbegin.space/rdi-fin-plan`),
+`APP_PATH` и `DATA_ROOT` — править их руками не нужно.
 
 ### 2. Блок веб-сервера (вручную, один раз на проект)
 
-`deploy.sh` в конце сообщит, есть ли блок для `/{{SLUG}}`. Если нет — вставь в блок
-домена конфига веб-сервера на сервере и перезагрузи:
+`deploy.sh` в конце сообщит, есть ли блок для `/rdi-fin-plan`. Если нет — вставь в блок
+домена конфига Caddy на сервере и перезагрузи:
 
 ```
-{{CADDY_BLOCK}}
+handle /rdi-fin-plan* {
+    uri strip_prefix /rdi-fin-plan
+    root * /var/www/b24/rdi-fin-plan
+    php_fastcgi unix//run/php/php8.3-fpm.sock
+    file_server
+}
 ```
+
+Перезагрузка: `sudo caddy reload --config /etc/caddy/Caddyfile`
 
 ### 3. Зарегистрировать приложение в Б24
 
-В портале Битрикс24: **Приложения → Разработчикам → вкладка «Готовые сценарии» → Другое → Локальное приложение**
+В портале `ooordi.bitrix24.ru`: **Приложения → Разработчикам → вкладка «Готовые сценарии» → Другое → Локальное приложение**
 (прямого deep-link'а на эту форму с портала Б24 не даёт — открывать вручную
 через левое меню; официальная инструкция с картинками:
 [Разработчикам: как создать вебхуки и приложения для Битрикс24](https://helpdesk.bitrix24.ru/open/20886106/#2))
 
 - Тип: **Серверное**
-- **Путь обработчика:** `{{HANDLER_URL}}`
+- **Путь обработчика:** `https://rub24.blackboxbegin.space/rdi-fin-plan/index.php`
 - **Путь установки:** тот же URL (с `/index.php` на конце — обязательно)
-- **«Настройка прав»** — отметь: `{{SCOPES}}` (список называет агент по `docs/project-brief.md`; `department` — доступ по отделам (режим по умолчанию), см. [rule-b24-department-based-access](/projects/docs/rules-b24/rule-b24-department-based-access.md))
+- **«Настройка прав»** — отметь: `crm`, `user`, `placement`, `department` (список называет агент по `docs/project-brief.md`; `department` — доступ по отделам (режим по умолчанию), см. [rule-b24-department-based-access](/projects/docs/rules-b24/rule-b24-department-based-access.md))
 
 После сохранения Б24 покажет `client_id` и `client_secret`.
 
 ### 4. Вписать credentials в env.php на сервере
 
-В `{{DEPLOY_DIR}}/env.php` (на сервере, не в проекте):
+В `/var/www/b24/rdi-fin-plan/env.php` (на сервере, не в проекте):
 
 ```php
 define('B24_CLIENT_ID', 'app.xxxxxxxxx.xxxxxxxx');       // из карточки Б24
@@ -85,6 +80,6 @@ define('B24_CLIENT_SECRET', 'xxxxxxxxxxxxxxxxxxxxxxxx');  // из карточк
 
 ## Несколько порталов
 
-Этот шаблон — **single-tenant**: один экземпляр = один портал. Для каждого
-дополнительного портала — отдельный проект (отдельный slug, свой `env.php`
+Этот проект — **single-tenant**: один экземпляр = один портал (`ooordi.bitrix24.ru`).
+Для каждого дополнительного портала — отдельный проект (отдельный slug, свой `env.php`
 с credentials портала). Повторить шаги 1–5.
