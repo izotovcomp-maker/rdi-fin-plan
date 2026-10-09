@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Макет — НАЗВАНИЕ ПРОЕКТА</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>НАЗВАНИЕ ПРОЕКТА</h1>
+    <div class="muted">Одна фраза: что показывает приложение</div>
+    <div class="demo-banner"><b>Макет на вымышленных данных.</b> Названия и цифры придуманы, портал Битрикс24 не подключён.
+      Нужно проверить: всё ли на месте, нет ли лишнего, понятны ли названия.
+      <button class="btn" id="resetBtn" style="margin-left:8px">Сбросить макет</button></div>
+  </header>
+
+  <div class="kpis" id="kpis"></div>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-tab="list">Список</button>
+    <button class="tab" data-tab="explain">Как это считается</button>
+  </nav>
+
+  <section id="tab-list" class="tabpane">
+    <div class="filters">
+      <label>Статус <select id="fStatus"><option value="">Все</option></select></label>
+      <label>Поиск <input type="text" id="fText" placeholder="например: аванс"></label>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>Список</h2>
+      <div class="tbl-wrap" id="list"></div>
+    </div>
+  </section>
+
+  <section id="tab-explain" class="tabpane hidden">
+    <div class="card">
+      <h2>Откуда берутся цифры</h2>
+      <p style="margin-top:0">Опишите простыми словами, какие данные Б24 используются и по какой формуле считаются итоги.</p>
+      <div class="formula">Итого = сумма по строкам</div>
+    </div>
+  </section>
+</div>
+
+<script src="mock-data.js"></script>
+<script src="mock.js"></script>
+</body>
+</html>

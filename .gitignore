@@ -6,3 +6,4 @@ deploy.customer.env
 .claude/*
 !.claude/commands
 !.claude/skills/
+mock-*.zip
