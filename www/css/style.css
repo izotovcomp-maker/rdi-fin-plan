@@ -238,5 +238,7 @@ input.date-pick { width: 92px; }
 .objf { font: inherit; font-family: var(--font-mono); font-size: 12px; padding: 4px 12px; border-radius: 6px; border: 1px solid var(--muted); background: transparent; cursor: pointer; }
 .objf:hover { background: var(--handle-fill); }
 .objf.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-.kpi .kv { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; margin-top: 3px; white-space: nowrap; }
-.kpi .kv span { color: var(--muted); }
+.kpi .val-line { font-family: var(--font-mono); font-size: 15px; font-weight: 600; margin-top: 4px; white-space: nowrap; }
+.kpi .kv { display: inline-block; margin-right: 16px; white-space: nowrap; }
+.kpi .kv:last-child { margin-right: 0; }
+.kpi .kv span { color: var(--muted); font-weight: 400; }

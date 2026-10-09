@@ -288,8 +288,9 @@
     let cum = 0, min = 0, minP = null;
     allMonths().forEach(m => { cum += byM[m] || 0; if (cum < min) { min = cum; minP = m; } });
     const u = F.unit, ul = u === 1 ? '₽' : (u === 1000 ? 'тыс. ₽' : 'млн ₽');
-    const kv = (l, v, c) => '<div class="kv"><span>' + l + '</span><b class="' + c + '">' + (v ? v : '0') + '</b></div>';
-    const tile = (title, sub, rows) => '<div class="kpi"><div class="lbl">' + title + '</div>' + rows + '<div class="sub">' + sub + '</div></div>';
+    // значения в одну строку: Доход X · Расход Y · Сальдо Z
+    const kv = (l, v, c) => '<span class="kv"><span>' + l + '</span> <b class="' + c + '">' + (v ? v : '0') + '</b></span>';
+    const tile = (title, sub, rows) => '<div class="kpi"><div class="lbl">' + title + '</div><div class="val-line">' + rows + '</div><div class="sub">' + sub + '</div></div>';
     $('kpis').innerHTML =
       tile('По периоду', ul + ' · план + факт',
         kv('Доход', fmtSigned(inc, u), 'pos') +
