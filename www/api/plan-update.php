@@ -56,7 +56,9 @@ try {
     if (!empty($item['error'])) {
         finPlanUpdateError(404, 'Платёж не найден: ' . ($item['error_description'] ?? $item['error']));
     }
-    $curStage = (string)($item['result']['stageId'] ?? '');
+    $cur = $item['result']['item'] ?? $item['result'] ?? [];
+    if (!is_array($cur)) $cur = [];
+    $curStage = (string)($cur['STAGE_ID'] ?? $cur['stageId'] ?? '');
     $prefix   = (strpos($curStage, ':') !== false) ? strstr($curStage, ':', true) : '';
     if ($prefix === '') finPlanUpdateError(409, 'У платежа неожиданный формат stageId.');
 
@@ -74,7 +76,7 @@ try {
         $ok = false;
         foreach ($list as $st) if ($st['id'] === $newStatusId) { $ok = true; break; }
         if (!$ok) finPlanUpdateError(400, 'Такой стадии нет в воронке платежа.');
-        $fields['stageId'] = $stage;
+        $fields['STAGE_ID'] = $stage;
     } elseif ($stage !== null) finPlanUpdateError(400, 'Пустая стадия.');
 
     if (!$fields) finPlanUpdateError(400, 'Нет полей для обновления.');

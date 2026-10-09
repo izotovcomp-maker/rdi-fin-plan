@@ -159,6 +159,35 @@
     });
   }
 
+  // ── окно диагностики (админ): сырые ответы портала для отладки ──────────
+  var diagBtn = $id('diag-btn');
+  if (diagBtn && window.APP_IS_ADMIN) {
+    diagBtn.hidden = false;
+    diagBtn.addEventListener('click', function () {
+      var out = $id('diag-out');
+      out.textContent = 'Загрузка…';
+      $id('diag-modal-overlay').hidden = false;
+      window.api('GET', 'api/plan-debug.php').then(function (res) {
+        out.textContent = JSON.stringify(res, null, 2);
+      }).catch(function (err) {
+        out.textContent = 'Ошибка: ' + err.message;
+      });
+    });
+    $id('diag-close').addEventListener('click', function () { $id('diag-modal-overlay').hidden = true; });
+    $id('diag-copy').addEventListener('click', function () {
+      var text = $id('diag-out').textContent;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { $id('diag-copy').textContent = 'Скопировано'; });
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+        $id('diag-copy').textContent = 'Скопировано';
+      }
+      setTimeout(function () { $id('diag-copy').textContent = 'Копировать'; }, 1500);
+    });
+  }
+
   // ════════════════════════════════════════════════════════════════════════
   // Фин план
   // ════════════════════════════════════════════════════════════════════════
@@ -189,9 +218,9 @@
   const fmtSigned = (v, unit) => (v > 0 ? '+' : '') + fmt(v, unit);
 
   const dealById = id => P.deals.find(d => d.id === id) || null;
-  const dealLabel = d => d
+  const dealLabel = (d, fallbackId) => d
     ? '<' + (d.code || d.id) + '> ' + (d.sname || d.title || ('Сделка ' + d.id))
-    : 'Сделка ' + id;
+    : ('Сделка ' + (fallbackId == null ? '—' : fallbackId));   // сделка не найдена/удалена
   const contractById = id => id ? (P.contracts.find(c => c.id === id) || null) : null;
   const periodOf = p => p.date ? p.date.slice(2, 4) + p.date.slice(5, 7) : null;
 
@@ -314,11 +343,11 @@
       return '<tr class="' + (rowCls || '') + '"><td>' + label + '</td>' + arr.map((v, i) => cell(v, months[i] === cur ? 'cur' : '')).join('') + '<td class="num ' + cls(tot) + '"><b>' + fmt(tot, u) + '</b></td></tr>';
     };
     h += '<tr class="grp"><td colspan="' + (months.length + 2) + '">Доходы</td></tr>';
-    incDeals.forEach(id => { h += rowFor(esc(dealLabel(dealById(id))), sumBy(p => p.dealId === id && p.amount > 0)); });
+    incDeals.forEach(id => { h += rowFor(esc(dealLabel(dealById(id), id)), sumBy(p => p.dealId === id && p.amount > 0)); });
     const inc = sumBy(p => p.amount > 0);
     h += rowFor('Итого доходы', inc, 'tot');
     h += '<tr class="grp"><td colspan="' + (months.length + 2) + '">Расходы</td></tr>';
-    expDeals.forEach(id => { h += rowFor(esc(dealLabel(dealById(id))), sumBy(p => p.dealId === id && p.amount < 0)); });
+    expDeals.forEach(id => { h += rowFor(esc(dealLabel(dealById(id), id)), sumBy(p => p.dealId === id && p.amount < 0)); });
     const exp = sumBy(p => p.amount < 0);
     h += rowFor('Итого расходы', exp, 'tot');
     const saldo = months.map((m, i) => inc[i] + exp[i]);
@@ -332,7 +361,7 @@
   // ── Реестр ───────────────────────────────────────────────────────────
   function renderReestr() {
     const list = filtered(true).slice();
-    const val = p => sortKey === 'obj' ? dealLabel(dealById(p.dealId))
+    const val = p => sortKey === 'obj' ? dealLabel(dealById(p.dealId), p.dealId)
       : (sortKey === 'purpose' ? p.subject
       : (sortKey === 'amount' ? p.amount
       : (sortKey === 'period' ? (periodOf(p) || '') + p.date : (p.date || ''))));
@@ -349,7 +378,7 @@
       const con = contractById(p.contractId);
       h += '<tr><td>' + (periodOf(p) || '—') + '</td><td>' + fmtDate(p.date) + '</td>' +
         '<td class="num ' + cls(p.amount) + '">' + fmtSigned(p.amount, 1) + '</td>' +
-        '<td>' + esc(dealLabel(dealById(p.dealId))) + '</td>' +
+        '<td>' + esc(dealLabel(dealById(p.dealId), p.dealId)) + '</td>' +
         '<td class="wrap">' + esc(p.subject) + (con ? '<div class="muted" style="font-size:11px">Подряд: ' + esc(con.sname || con.title) + '</div>' : '') + '</td>' +
         '<td>' + stageBadge(p) + '</td></tr>';
     });

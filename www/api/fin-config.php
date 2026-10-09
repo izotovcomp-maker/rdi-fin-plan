@@ -22,12 +22,14 @@ const FIN_PAY_UF = [
     'subject' => 'UF_CRM_12_PAY_SUBJECT',       // Предмет оплаты
     'notes'   => 'UF_CRM_12_PAY_NOTES',         // Примечания к оплате
     'date'    => 'UF_CRM_12_PAY_PLAN_DATE',     // Дата план (= дата факта после оплаты)
+    'fact'    => 'UF_CRM_12_PAY_FACT',          // Сумма оплачено (БП: >0 ⟺ оплачен)
 ];
 const FIN_PAYSC_UF = [
     'plan'    => 'UF_CRM_20_SCPAY_PLAN',
     'subject' => 'UF_CRM_20_SCPAY_SUBJECT',
     'notes'   => 'UF_CRM_20_SCPAY_NOTES',
     'date'    => 'UF_CRM_20_SCPAY_PLAN_DATE',
+    'fact'    => 'UF_CRM_20_SCPAY_FACT',
 ];
 
 // Поля Сделок и Подрядов
@@ -36,12 +38,31 @@ const FIN_DEAL_SNAME = 'UF_CRM_8_O_SNAME';       // Краткое наимен�
 const FIN_SCONTR_SNAME = 'UF_CRM_18_SCONTR_SNAME'; // Краткое наименование
 const FIN_SCONTR_COST  = 'UF_CRM_18_SCONTR_COST'; // Цена договора
 
-/** Стандартные (не UF) поля в camelCase — так их отдаёт crm.item.*, это не UF-имена. */
-function finPaySelect(): array {
-    return array_merge(['id', 'title', 'stageId', 'parentId1038'], array_values(FIN_PAY_UF));
+/** Select для crm.item.list: при useOriginalUfNames=Y из select МОЛЧА выбрасываются
+ *  все стандартные поля (сверено с порталом: и camelCase, и капс дают пустые элементы,
+ *  2026-10-09). Поэтому берём '*' — UF-поля приходят капсом, стандартные читаем
+ *  в обоих регистрах (finItemField). */
+function finSelectAll(): array {
+    return ['*'];
 }
-function finPayscSelect(): array {
-    return array_merge(['id', 'title', 'stageId', 'parentId1038', 'parentId1058'], array_values(FIN_PAYSC_UF));
+
+/** Стандартное поле элемента: при useOriginalUfNames=Y регистр стандартных полей
+ *  в ответе не гарантирован — читаем оба варианта. */
+function finItemField(array $item, string $upper, string $camel) {
+    return $item[$upper] ?? $item[$camel] ?? null;
+}
+
+/** crm.item.list заворачивает элементы в result.items (сверено с порталом). */
+function finExtractItems(array $resp): array {
+    $items = $resp['result']['items'] ?? null;
+    if (is_array($items)) return $items;
+    $r = $resp['result'] ?? null;
+    if (is_array($r)) {
+        // страховка от старого/другого формата: result как список элементов
+        $first = reset($r);
+        return (is_array($first) && !isset($r['items'])) ? $r : [];
+    }
+    return [];
 }
 
 /**
@@ -60,7 +81,7 @@ function finItemsAll($b24, int $entityTypeId, array $select, array $filter = [])
     if (!empty($first['error'])) {
         throw new RuntimeException('crm.item.list(' . $entityTypeId . '): ' . ($first['error_description'] ?? $first['error']));
     }
-    $rows  = (array)($first['result'] ?? []);
+    $rows  = finExtractItems($first);
     $total = (int)($first['total'] ?? count($rows));
 
     $cmds = [];
@@ -79,7 +100,7 @@ function finItemsAll($b24, int $entityTypeId, array $select, array $filter = [])
             throw new RuntimeException('crm.item.list (batch): ' . (is_array($e) ? ($e['error_description'] ?? json_encode($e, JSON_UNESCAPED_UNICODE)) : (string)$e));
         }
         foreach (array_keys($chunk) as $k) {
-            foreach ((array)($pages[$k] ?? []) as $r) $rows[] = $r;
+            foreach (finExtractItems((array)($pages[$k] ?? [])) as $r) $rows[] = $r;
         }
     }
     return $rows;
@@ -96,6 +117,12 @@ function finNormDate($v): ?string {
 function finNum($v): float {
     return is_numeric($v) ? (float)$v : 0.0;
 }
+
+/** Знаки сумм: на портале расходы/подряды уже с минусом (сверено 2026-10-09),
+ *  нормализуем принудительно, чтобы не задваивать знак. */
+function finPayAmount($v): float  { return abs(finNum($v)); }    // доход всегда «+»
+function finPayscAmount($v): float { return -abs(finNum($v)); }  // расход всегда «−»
+function finCostAbs($v): float    { return abs(finNum($v)); }    // цена подряда — положительным числом
 
 /** parentId-поле → int|null (значение бывает числом или массивом чисел). */
 function finParentId($v): ?int {

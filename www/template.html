@@ -15,9 +15,11 @@
     <header class="header-row">
       <div>
         <h1>Финансовый план · движение денежных средств</h1>
-        <p class="muted">Сводка по всем объектам: что придёт, что уйдёт и сколько будет на счёте в каждом месяце</p>
       </div>
-      <button type="button" id="access-btn" class="btn-secondary" hidden>Доступ</button>
+      <div style="display:flex;gap:8px">
+        <button type="button" id="diag-btn" class="btn-secondary" hidden>Диагностика</button>
+        <button type="button" id="access-btn" class="btn-secondary" hidden>Доступ</button>
+      </div>
     </header>
 
     <div id="plan-error" class="error-banner" hidden>
@@ -72,7 +74,7 @@
       <div class="card">
         <h2>Таблица: объекты × месяцы</h2>
         <div class="tbl-wrap" id="matrix"></div>
-        <p class="muted" style="font-size:12px;margin:8px 0 0">Красным выделены месяцы, в которых нарастающий остаток уходит в минус — то есть денег не хватает.</p>
+        <p class="muted" style="font-size:12px;margin:8px 0 0">Красным выделены месяцы, в которых нарастающий остаток уходит в минус</p>
       </div>
     </section>
 
@@ -186,6 +188,18 @@
         <button type="button" id="access-modal-cancel" class="btn-secondary">Отмена</button>
         <button type="button" id="access-modal-save" class="btn-primary">Сохранить</button>
       </div>
+    </div>
+  </div>
+
+  <div id="diag-modal-overlay" class="modal-overlay" hidden>
+    <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="diag-modal-title">
+      <h2 id="diag-modal-title">Диагностика: сырые ответы портала</h2>
+      <p class="muted">Те же запросы, которыми приложение собирает финплан. Скопируй JSON и передай разработчику.</p>
+      <div class="modal-actions" style="justify-content:flex-start;margin-top:4px">
+        <button type="button" id="diag-copy" class="btn-primary">Копировать</button>
+        <button type="button" id="diag-close" class="btn-secondary">Закрыть</button>
+      </div>
+      <pre id="diag-out" style="background:#1a1d23;color:#abb2bf;padding:12px;border-radius:8px;max-height:55vh;overflow:auto;font-size:.78rem;white-space:pre-wrap;word-break:break-all;margin-top:10px">Загрузка…</pre>
     </div>
   </div>
 
