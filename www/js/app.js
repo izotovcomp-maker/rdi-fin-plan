@@ -418,11 +418,33 @@
 
   // ── правки платежей «По объекту» — накапливаются, отправляются одной кнопкой (D-011) ──
   // objEdits: { 'pay12': {date?, notes?, stage?} } — только поля, отличающиеся
-  // от данных портала. Отправка — batch на api/plan-update.php; отмена —
-  // перезагрузка данных объекта. После отправки БП портала пересчитывает
-  // даты/периоды асинхронно, поэтому данные перезагружаем с задержкой.
+  // от данных портала (дата хранится в ISO). Отправка — batch на
+  // api/plan-update.php; отмена — перезагрузка данных объекта. После отправки
+  // БП портала пересчитывает даты/периоды асинхронно, поэтому данные
+  // перезагружаем с задержкой.
   let objEdits = {};
   let objSending = false;
+
+  const isoToRu = d => d ? (d.slice(8) + '.' + d.slice(5, 7) + '.' + d.slice(0, 4)) : '';
+  // маска ввода даты: только цифры, точки сами — «120826» → «12.08.26»
+  const fmtDateInput = v => {
+    const dg = String(v).replace(/\D/g, '').slice(0, 8);
+    let out = dg.slice(0, 2);
+    if (dg.length > 2) out += '.' + dg.slice(2, 4);
+    if (dg.length > 4) out += '.' + dg.slice(4, 8);
+    return out;
+  };
+  // «12.08.2026» / «12082026» / «120826» → 'YYYY-MM-DD' или null
+  const parseRuDate = v => {
+    const dg = String(v).replace(/\D/g, '');
+    let d, m, y;
+    if (dg.length === 8) { d = +dg.slice(0, 2); m = +dg.slice(2, 4); y = +dg.slice(4, 8); }
+    else if (dg.length === 6) { d = +dg.slice(0, 2); m = +dg.slice(2, 4); y = 2000 + +dg.slice(4, 6); }
+    else return null;
+    if (y < 2000 || y > 2099 || m < 1 || m > 12) return null;
+    if (d < 1 || d > new Date(y, m, 0).getDate()) return null;
+    return y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2);
+  };
 
   function recordEdit(p, field, value) {
     const key = p.kind + p.id;
@@ -462,17 +484,15 @@
   function payRow(p, stages) {
     const key = p.kind + p.id;
     const ed = objEdits[key];
-    const pend = objSending;
     const pp = ed && ed.stage ? Object.assign({}, p, { stageId: ed.stage }) : p;
-    const date = ed && ed.date !== undefined ? ed.date : p.date;
+    const dateIso = ed && ed.date !== undefined ? ed.date : p.date;
     const notes = ed && ed.notes !== undefined ? ed.notes : p.notes;
-    return '<tr' + (ed ? ' class="edited"' : '') + '><td class="cell-date' + (pend ? ' pending' : '') + '">' +
-        '<input type="date" class="date-pick" data-date-id="' + key + '" value="' + (date || '') + '"' + (pend ? ' disabled' : '') + '>' +
-        (pend ? '<div class="recalc-hint"><span class="dot"></span>данные обновляются…</div>' : '') +
+    return '<tr' + (ed ? ' class="edited"' : '') + '><td>' +
+        '<input type="text" class="date-pick" inputmode="numeric" autocomplete="off" data-date-id="' + key + '" value="' + esc(isoToRu(dateIso)) + '" placeholder="ДД.ММ.ГГГГ" maxlength="10"' + (objSending ? ' disabled' : '') + '>' +
       '</td>' +
       '<td class="num ' + cls(p.amount) + '">' + fmtSigned(p.amount, 1) + '</td>' +
       '<td class="wrap">' + esc(p.subject) + '</td>' +
-      '<td class="wrap"><textarea class="notes-pick" data-notes-id="' + key + '" rows="2" placeholder="—"' + (pend ? ' disabled' : '') + '>' + esc(notes) + '</textarea></td>' +
+      '<td class="wrap"><textarea class="notes-pick" data-notes-id="' + key + '" rows="2" placeholder="—"' + (objSending ? ' disabled' : '') + '>' + esc(notes) + '</textarea></td>' +
       '<td>' + stageSelect(pp, stages) + (ed ? '<span class="edit-mark" title="Изменено, ещё не отправлено на портал">✍</span>' : '') + '</td></tr>';
   }
   const payTable = (list, stages) => '<div class="tbl-wrap"><table><thead><tr><th>Дата план</th><th class="num">Сумма, ₽</th><th>Назначение платежа</th><th>Примечания к оплате</th><th>Стадия</th></tr></thead><tbody>' + list.map(p => payRow(p, stages)).join('') + '</tbody></table></div>';
@@ -500,14 +520,15 @@
   function renderObject() {
     if (objSel === null) { $('objectView').innerHTML = '<p class="muted">Нет объектов на портале.</p>'; return; }
     const deal = dealById(objSel);
-    const editCount = Object.keys(objEdits).length;
+    // счётчик — по числу изменённых ПОЛЕЙ (у одного платежа их может быть несколько)
+    const editCount = Object.keys(objEdits).reduce((s, k) => s + Object.keys(objEdits[k]).length, 0);
+    const progress = '<span class="obj-progress">Идет обновление 🔄</span>';
     const objActions = editCount
-      ? '<div class="obj-actions">' +
-        '<button type="button" id="objApply" class="btn-primary"' + (objSending ? ' disabled' : '') + '>✅ Подтвердить и отправить все изменения (' + editCount + ')</button>' +
-        '<button type="button" id="objDiscard" class="btn-secondary"' + (objSending ? ' disabled' : '') + '>❎ Отменить изменения</button>' +
-        (objSending ? '<span class="recalc-hint"><span class="dot"></span>отправляем на портал…</span>' : '') +
+      ? '<div class="obj-actions">' + (objSending ? progress :
+        '<button type="button" id="objApply" class="btn-primary">✅ Подтвердить и отправить все изменения (' + editCount + ')</button>' +
+        '<button type="button" id="objDiscard" class="btn-secondary">❎ Отменить изменения</button>') +
         '</div>'
-      : '';
+      : (objSending ? '<div class="obj-actions">' + progress + '</div>' : '');
     let h = '<div class="filters" style="margin:0 0 6px"><label>Объект <select id="objPick">' +
       P.deals.map(d => '<option value="' + d.id + '"' + (d.id === objSel ? ' selected' : '') + '>' + esc(dealLabel(d)) + '</option>').join('') +
       '</select></label></div>' + objActions;
@@ -565,9 +586,18 @@
     if (applyBtn) applyBtn.onclick = sendObjectEdits;
     const discardBtn = $('objDiscard');
     if (discardBtn) discardBtn.onclick = () => { objEdits = {}; loadObject(objSel); };
-    $('objectView').querySelectorAll('[data-date-id]').forEach(inp => inp.onchange = e => {
-      const p = findPay(inp.dataset.dateId);
-      if (p && e.target.value) recordEdit(p, 'date', e.target.value);
+    $('objectView').querySelectorAll('[data-date-id]').forEach(inp => {
+      inp.oninput = e => { e.target.value = fmtDateInput(e.target.value); };
+      inp.onchange = e => {
+        const p = findPay(inp.dataset.dateId);
+        if (!p) return;
+        const iso = parseRuDate(e.target.value);
+        if (iso) recordEdit(p, 'date', iso);
+        else {
+          const ed = objEdits[p.kind + p.id];
+          e.target.value = isoToRu(ed && ed.date !== undefined ? ed.date : p.date);
+        }
+      };
     });
     $('objectView').querySelectorAll('[data-notes-id]').forEach(inp => inp.onchange = e => {
       const p = findPay(inp.dataset.notesId);
