@@ -534,10 +534,12 @@
     });
   }
 
-  // плитка распределения: всё разложено — «✔️ Распределено», есть разница — «❓ Не распределено {сумма}»
-  const distrTile = (label, diff) => Math.abs(diff) < 0.5
+  // плитка распределения: всё разложено — «✔️ Распределено», есть разница — «❓ Не распределено {сумма}»;
+  // суммы с точностью до копеек (2 знака), порог «распределено» — полкопейки
+  const fmtPrec = v => (v < 0 ? MINUS : '') + Math.abs(v).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const distrTile = (label, diff) => Math.abs(diff) < 0.005
     ? mini(label, '✔️ Распределено', 'pos')
-    : mini(label, '❓ Не распределено ' + fmt(diff, 1) + ' ₽', 'neg');
+    : mini(label, '❓ Не распределено ' + fmtPrec(diff) + ' ₽', 'neg');
 
   function renderObject() {
     const editCount = Object.keys(objEdits).reduce((s, k) => s + Object.keys(objEdits[k]).length, 0);
