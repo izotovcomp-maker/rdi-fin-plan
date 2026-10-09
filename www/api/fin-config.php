@@ -22,6 +22,7 @@ const FIN_PAY_UF = [
     'subject' => 'UF_CRM_12_PAY_SUBJECT',       // Предмет оплаты
     'notes'   => 'UF_CRM_12_PAY_NOTES',         // Примечания к оплате
     'date'    => 'UF_CRM_12_PAY_PLAN_DATE',     // Дата план (= дата факта после оплаты)
+    'period'  => 'UF_CRM_12_PAY_PLAN_PERIOD',   // Период план (ГГММ, ведёт БП портала)
     'fact'    => 'UF_CRM_12_PAY_FACT',          // Сумма оплачено (БП: >0 ⟺ оплачен)
 ];
 const FIN_PAYSC_UF = [
@@ -29,6 +30,7 @@ const FIN_PAYSC_UF = [
     'subject' => 'UF_CRM_20_SCPAY_SUBJECT',
     'notes'   => 'UF_CRM_20_SCPAY_NOTES',
     'date'    => 'UF_CRM_20_SCPAY_PLAN_DATE',
+    'period'  => 'UF_CRM_20_SCPAY_PLAN_PERIOD',
     'fact'    => 'UF_CRM_20_SCPAY_FACT',
 ];
 
@@ -111,6 +113,18 @@ function finNormDate($v): ?string {
     if (!is_string($v) || $v === '') return null;
     if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $v, $m)) return $m[1];
     return null;
+}
+
+/**
+ * Период платежа ГГММ ('2607'): из поля портала «Период план» (его ведёт БП,
+ * D-010); пусто/криво — производим от «Дата план». null, если нет ни того, ни другого.
+ */
+function finNormPeriod($v, ?string $date = null): ?string {
+    if (is_numeric($v)) {
+        $s = (string)(int)$v;
+        if (preg_match('/^\d{2}(0[1-9]|1[0-2])$/', $s)) return $s;
+    }
+    return $date ? substr($date, 2, 2) . substr($date, 5, 2) : null;
 }
 
 /** Число из UF-поля (может прийти строкой). */
@@ -241,6 +255,7 @@ function finNormPayment(array $p, string $kind, array $uf, ?int $contractId, arr
     $rawStage = (string)(finItemField($p, 'STAGE_ID', 'stageId') ?? '');
     $prefix   = ($pos = strpos($rawStage, ':')) === false ? '' : substr($rawStage, 0, $pos);
     $list     = $stages[$prefix] ?? [];
+    $date     = finNormDate($p[$uf['date']] ?? null);
     return [
         'id'         => (int)(finItemField($p, 'ID', 'id') ?? 0),
         'kind'       => $kind,                                   // pay (+) | paysc (−)
@@ -248,7 +263,9 @@ function finNormPayment(array $p, string $kind, array $uf, ?int $contractId, arr
         'contractId' => $contractId,
         'title'      => (string)(finItemField($p, 'TITLE', 'title') ?? ''),
         'amount'     => $kind === 'pay' ? finPayAmount($p[$uf['plan']] ?? 0) : finPayscAmount($p[$uf['plan']] ?? 0),
-        'date'       => finNormDate($p[$uf['date']] ?? null),
+        'date'       => $date,
+        // период — из поля портала (БП), fallback — от даты (D-010)
+        'period'     => finNormPeriod($p[$uf['period']] ?? null, $date),
         'subject'    => (string)($p[$uf['subject']] ?? ''),
         'notes'      => (string)($p[$uf['notes']] ?? ''),
         'stageId'    => $rawStage,

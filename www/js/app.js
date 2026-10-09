@@ -225,7 +225,9 @@
     ? '<' + (d.code || d.id) + '> ' + (d.sname || d.title || ('Сделка ' + d.id))
     : ('Сделка ' + (fallbackId == null ? '—' : fallbackId));   // сделка не найдена/удалена
   const contractById = id => id ? (P.contracts.find(c => c.id === id) || null) : null;
-  const periodOf = p => p.date ? p.date.slice(2, 4) + p.date.slice(5, 7) : null;
+  // период платежа — поле портала «Период план» (его ведёт БП, D-010);
+  // пусто — производим от «Дата план», как в демо (D-004)
+  const periodOf = p => p.period || (p.date ? p.date.slice(2, 4) + p.date.slice(5, 7) : null);
 
   // стадии: stageId 'DT1046_18:NEW' → мета из словаря стадий
   // (для реестра — P.stages, для «По объекту» — OBJ.stages)
