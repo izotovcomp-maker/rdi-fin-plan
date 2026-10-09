@@ -272,22 +272,33 @@
   }
 
   // ── KPI ───────────────────────────────────────────────────────────────
+  // Две сводные плитки (запрос 2026-10-09): «По периоду» (план + факт) и
+  // «Факт» (только оплаченное, признак — стадия «Счёт оплачен» / Сумма оплачено > 0,
+  // D-006), в каждой — Доход / Расход / Сальдо. Плюс «Самая низкая точка».
   const kpi = (l, v, c, s) => '<div class="kpi"><div class="lbl">' + l + '</div><div class="val ' + c + '">' + v + '</div><div class="sub">' + s + '</div></div>';
   function renderKpis() {
     const list = filtered(false);
     const inc = list.filter(p => p.amount > 0).reduce((s, p) => s + p.amount, 0);
     const exp = list.filter(p => p.amount < 0).reduce((s, p) => s + p.amount, 0);
     const saldo = inc + exp;
-    const factSaldo = list.filter(p => p.fact).reduce((s, p) => s + p.amount, 0);
+    const fInc = list.filter(p => p.fact && p.amount > 0).reduce((s, p) => s + p.amount, 0);
+    const fExp = list.filter(p => p.fact && p.amount < 0).reduce((s, p) => s + p.amount, 0);
+    const fSaldo = fInc + fExp;
     const byM = {}; list.forEach(p => { const ym = periodOf(p); if (ym) byM[ym] = (byM[ym] || 0) + p.amount; });
     let cum = 0, min = 0, minP = null;
     allMonths().forEach(m => { cum += byM[m] || 0; if (cum < min) { min = cum; minP = m; } });
     const u = F.unit, ul = u === 1 ? '₽' : (u === 1000 ? 'тыс. ₽' : 'млн ₽');
+    const kv = (l, v, c) => '<div class="kv"><span>' + l + '</span><b class="' + c + '">' + (v ? v : '0') + '</b></div>';
+    const tile = (title, sub, rows) => '<div class="kpi"><div class="lbl">' + title + '</div>' + rows + '<div class="sub">' + sub + '</div></div>';
     $('kpis').innerHTML =
-      kpi('Доходы', fmtSigned(inc, u), 'pos', ul + ' · в выбранном периоде') +
-      kpi('Расходы', fmt(exp, u), 'neg', ul + ' · платежи подрядчикам') +
-      kpi('Сальдо периода', fmtSigned(saldo, u), cls(saldo), ul + ' · доходы + расходы') +
-      kpi('Уже фактически', fmtSigned(factSaldo, u), cls(factSaldo), ul + ' · по «Счёт оплачен»') +
+      tile('По периоду', ul + ' · план + факт',
+        kv('Доход', fmtSigned(inc, u), 'pos') +
+        kv('Расход', fmt(exp, u), 'neg') +
+        kv('Сальдо', fmtSigned(saldo, u), cls(saldo))) +
+      tile('Факт', ul + ' · по «Счёт оплачен»',
+        kv('Доход', fmtSigned(fInc, u), 'pos') +
+        kv('Расход', fmt(fExp, u), 'neg') +
+        kv('Сальдо', fmtSigned(fSaldo, u), cls(fSaldo))) +
       kpi('Самая низкая точка', min < 0 ? fmt(min, u) : 'нет провалов', min < 0 ? 'neg' : 'pos',
         min < 0 ? ul + ' · ' + monLabel(minP) + ' — кассовый разрыв' : 'остаток не уходит в минус');
   }

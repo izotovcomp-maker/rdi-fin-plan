@@ -238,3 +238,5 @@ input.date-pick { width: 92px; }
 .objf { font: inherit; font-family: var(--font-mono); font-size: 12px; padding: 4px 12px; border-radius: 6px; border: 1px solid var(--muted); background: transparent; cursor: pointer; }
 .objf:hover { background: var(--handle-fill); }
 .objf.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.kpi .kv { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; margin-top: 3px; white-space: nowrap; }
+.kpi .kv span { color: var(--muted); }
