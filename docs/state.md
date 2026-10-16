@@ -8,7 +8,7 @@ description: Состояние проекта — где мы сейчас. Ж�
 > вся история — в [changelog.md](./changelog.md).
 > Обновляй после каждого осмысленного шага и **коммить**.
 
-**Последнее обновление:** 2026-10-09
+**Последнее обновление:** 2026-10-16
 **Фаза:** Предварительный блок завершён и отдан заказчику на просмотр
 
 ---
@@ -61,3 +61,4 @@ description: Состояние проекта — где мы сейчас. Ж�
 | Install-flow диаграмма | `docs/install-flow-diagram.md` |
 | Прод URL | https://rub24.blackboxbegin.space/rdi-fin-plan/ |
 | Хостинг / slug | prod (`iagdeploy@rub24.blackboxbegin.space:/var/www/b24`), slug: `rdi-fin-plan` |
+| Git-репозиторий | https://github.com/izotovcomp-maker/rdi-fin-plan.git (`origin`, ветка `master`) |
